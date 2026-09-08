@@ -11,7 +11,7 @@ export default function LoginPage() {
 
   const handleSubmit = (e) => {
     e.preventDefault()
-    alert(`Logging in as ${role}${role === 'Staff' ? ` (Center: ${centerCode})` : ''} with mobile: ${mobile}`)
+    window.location.href = '/dashboard'
   }
 
   return (
