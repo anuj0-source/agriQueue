@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react'
 import CreateAccountPage from './pages/CreateAccountPage'
 import HomePage from './pages/HomePage'
+import LoginPage from './pages/LoginPage'
 import './App.css'
 
 const PAGE_BY_PATH = {
   '/': HomePage,
   '/create-account': CreateAccountPage,
+  '/login': LoginPage,
 }
 
 function useCurrentPath() {

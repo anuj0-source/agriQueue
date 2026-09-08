@@ -91,7 +91,7 @@ export default function CreateAccountPage() {
             </button>
           </form>
 
-          <p className="signin">Already have an account? <a href="#login">Login here</a></p>
+          <p className="signin">Already have an account? <a href="/login">Login here</a></p>
         </div>
       </section>
 

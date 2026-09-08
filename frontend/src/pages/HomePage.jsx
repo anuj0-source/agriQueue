@@ -46,7 +46,7 @@ export default function HomePage() {
           <a href="#features" onClick={closeMenu}>Features</a>
           <a href="#how" onClick={closeMenu}>How It Works</a>
           <a href="#about" onClick={closeMenu}>About</a>
-          <a className="nav-login" href="/create-account" onClick={closeMenu}>Login</a>
+          <a className="nav-login" href="/login" onClick={closeMenu}>Login</a>
           <a className="nav-cta" href="/create-account" onClick={closeMenu}>Get Started →</a>
         </div>
       </nav>
