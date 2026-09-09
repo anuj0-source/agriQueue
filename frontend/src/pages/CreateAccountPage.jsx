@@ -1,8 +1,9 @@
 import { useState } from 'react'
-import { ArrowLeft, ChevronDown, LockKeyhole, Mail, MapPin, UserRound } from 'lucide-react'
+import { AlertCircle, ArrowLeft, CheckCircle2, ChevronDown, LockKeyhole, Mail, MapPin, UserRound } from 'lucide-react'
 import Brand from '../components/Brand'
 import FormField from '../components/FormField'
 import indiaDistricts from '../data/india-districts.json'
+import { createFarmerAccount } from '../api'
 
 const districtsByState = indiaDistricts.districts.reduce((locations, { state, district }) => {
   if (!locations[state]) locations[state] = []
@@ -26,14 +27,72 @@ function LocationSelect({ label, placeholder, options, value, onChange, disabled
 }
 
 export default function CreateAccountPage() {
+  const [fullName, setFullName] = useState('')
+  const [mobile, setMobile] = useState('')
+  const [farmerId, setFarmerId] = useState('')
   const [selectedState, setSelectedState] = useState('')
   const [selectedDistrict, setSelectedDistrict] = useState('')
-  const preventSubmit = (event) => event.preventDefault()
+  const [village, setVillage] = useState('')
+  const [password, setPassword] = useState('')
+  const [termsAccepted, setTermsAccepted] = useState(false)
+
+  const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
+  const [isLoading, setIsLoading] = useState(false)
+
   const districts = selectedState ? districtsByState[selectedState] : []
 
   const selectState = (event) => {
     setSelectedState(event.target.value)
     setSelectedDistrict('')
+  }
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    setError('')
+    setSuccess('')
+
+    if (mobile.length !== 10) {
+      setError('Please enter a valid 10-digit mobile number')
+      return
+    }
+
+    if (!selectedState || !selectedDistrict) {
+      setError('Please select your state and district')
+      return
+    }
+
+    if (!password || password.length < 4) {
+      setError('Please enter a password with at least 4 characters')
+      return
+    }
+
+    if (!termsAccepted) {
+      setError('Please agree to the Terms & Conditions')
+      return
+    }
+
+    setIsLoading(true)
+    try {
+      await createFarmerAccount({
+        full_name: fullName.trim(),
+        mobile_number: mobile.trim(),
+        farmer_id: farmerId.trim() || null,
+        state: selectedState,
+        district: selectedDistrict,
+        village: village.trim(),
+        password: password,
+      })
+
+      setSuccess('Account created successfully! Redirecting to login...')
+      setTimeout(() => {
+        window.location.href = '/login'
+      }, 1200)
+    } catch (err) {
+      setError(err.message || 'Failed to create account. Please try again.')
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (
@@ -60,10 +119,49 @@ export default function CreateAccountPage() {
             <div className="form-step-dot" />
           </div>
 
-          <form onSubmit={preventSubmit}>
-            <FormField icon={UserRound} label="Full Name" placeholder="Enter your full name" />
-            <FormField icon={Mail} label="Mobile Number" placeholder="10-digit mobile number" type="tel" />
-            <FormField icon={LockKeyhole} label="Farmer ID (Optional)" placeholder="Enter farmer ID if available" required={false} />
+          {/* Feedback Banners */}
+          {error && (
+            <div className="auth-error-banner" role="alert">
+              <AlertCircle size={16} />
+              <span>{error}</span>
+            </div>
+          )}
+
+          {success && (
+            <div className="auth-success-banner" role="status">
+              <CheckCircle2 size={16} />
+              <span>{success}</span>
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} autoComplete="off">
+            <FormField
+              icon={UserRound}
+              label="Full Name"
+              placeholder="Enter your full name"
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              required
+            />
+            <FormField
+              icon={Mail}
+              label="Mobile Number"
+              placeholder="10-digit mobile number"
+              type="tel"
+              inputMode="numeric"
+              maxLength={10}
+              value={mobile}
+              onChange={(e) => setMobile(e.target.value.replace(/\D/g, ''))}
+              required
+            />
+            <FormField
+              icon={LockKeyhole}
+              label="Farmer ID (Optional)"
+              placeholder="Enter farmer ID if available"
+              value={farmerId}
+              onChange={(e) => setFarmerId(e.target.value)}
+              required={false}
+            />
             <div className="field-row">
               <LocationSelect
                 label="State"
@@ -81,13 +179,38 @@ export default function CreateAccountPage() {
                 disabled={!selectedState}
               />
             </div>
-            <FormField icon={MapPin} label="Village / Town" placeholder="Enter your village or town" />
+            <FormField
+              icon={MapPin}
+              label="Village / Town"
+              placeholder="Enter your village or town"
+              value={village}
+              onChange={(e) => setVillage(e.target.value)}
+              required
+            />
+            <FormField
+              icon={LockKeyhole}
+              label="Password"
+              type="password"
+              placeholder="Create a secure password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+            />
             <label className="terms">
-              <input type="checkbox" required />
+              <input
+                type="checkbox"
+                checked={termsAccepted}
+                onChange={(e) => setTermsAccepted(e.target.checked)}
+                required
+              />
               <span>I agree to the <a href="#terms">Terms &amp; Conditions</a> and <a href="#privacy">Privacy Policy</a></span>
             </label>
-            <button className="register-button" type="submit">
-              Create Account <span className="btn-arrow">→</span>
+            <button className="register-button" type="submit" disabled={isLoading}>
+              {isLoading ? 'Creating Account...' : (
+                <>
+                  Create Account <span className="btn-arrow">→</span>
+                </>
+              )}
             </button>
           </form>
 
@@ -97,9 +220,6 @@ export default function CreateAccountPage() {
 
       {/* ─── Visual Panel ───────────────────────────── */}
       <aside className="visual-panel" aria-label="Farmer in a field">
-
-
-
       </aside>
     </main>
   )

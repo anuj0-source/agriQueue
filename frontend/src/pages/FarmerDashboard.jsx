@@ -7,14 +7,28 @@ import {
 } from '../data/farmer-data'
 
 export default function FarmerDashboard() {
+  let farmerName = FARMER_PROFILE.name
+  let farmerId = FARMER_PROFILE.farmerId
+
+  try {
+    const stored = localStorage.getItem('currentUser')
+    if (stored) {
+      const parsed = JSON.parse(stored)
+      if (parsed.full_name) farmerName = parsed.full_name
+      if (parsed.farmer_id) farmerId = parsed.farmer_id
+    }
+  } catch (err) {
+    // Ignore JSON parse errors
+  }
+
   return (
     <FarmerLayout activePath="/dashboard">
       <div className="dashboard-container">
         {/* Welcome Header */}
         <div className="dashboard-welcome-row">
           <div>
-            <h1 className="dashboard-title">Welcome, {FARMER_PROFILE.name}</h1>
-            <p className="dashboard-sub">Farmer ID: {FARMER_PROFILE.farmerId}</p>
+            <h1 className="dashboard-title">Welcome, {farmerName}</h1>
+            <p className="dashboard-sub">Farmer ID: {farmerId}</p>
           </div>
         </div>
 
