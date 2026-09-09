@@ -27,6 +27,24 @@ const NAV_ITEMS = [
 export default function FarmerLayout({ activePath, children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
+  let initials = FARMER_PROFILE.initials
+  try {
+    const stored = localStorage.getItem('currentUser')
+    if (stored) {
+      const u = JSON.parse(stored)
+      if (u.full_name) {
+        initials = u.full_name
+          .split(' ')
+          .map((n) => n[0])
+          .join('')
+          .slice(0, 2)
+          .toUpperCase()
+      }
+    }
+  } catch (err) {
+    // Ignore error
+  }
+
   return (
     <div className="farmer-portal-layout">
       {/* ── Mobile Sidebar Overlay ── */}
@@ -94,8 +112,9 @@ export default function FarmerLayout({ activePath, children }) {
             </button>
 
             <a href="/profile" className="portal-avatar-pill" aria-label="View profile">
-              <span className="portal-avatar-circle">{FARMER_PROFILE.initials}</span>
+              <span className="portal-avatar-circle">{initials}</span>
             </a>
+
           </div>
         </header>
 

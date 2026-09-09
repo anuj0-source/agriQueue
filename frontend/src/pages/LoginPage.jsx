@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { ArrowLeft, Building2, Eye, EyeOff, IdCard, Lock } from 'lucide-react'
+import { AlertCircle, ArrowLeft, Building2, Eye, EyeOff, IdCard, Lock } from 'lucide-react'
 import Brand from '../components/Brand'
+import { loginFarmer } from '../api'
 
 export default function LoginPage() {
   const [role, setRole] = useState('Farmer')
@@ -8,10 +9,25 @@ export default function LoginPage() {
   const [mobile, setMobile] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
+  const [error, setError] = useState('')
+  const [isLoading, setIsLoading] = useState(false)
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
-    window.location.href = '/dashboard'
+    setError('')
+    setIsLoading(true)
+
+    try {
+      const data = await loginFarmer(mobile, password)
+      if (data.user) {
+        localStorage.setItem('currentUser', JSON.stringify(data.user))
+      }
+      window.location.href = '/dashboard'
+    } catch (err) {
+      setError(err.message || 'Login failed. Please check your credentials.')
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (
@@ -60,6 +76,14 @@ export default function LoginPage() {
               </button>
             ))}
           </div>
+
+          {/* Error Banner */}
+          {error && (
+            <div className="auth-error-banner" role="alert">
+              <AlertCircle size={16} />
+              <span>{error}</span>
+            </div>
+          )}
 
           {/* Form */}
           <form onSubmit={handleSubmit} className="login-form" autoComplete="off">
@@ -159,8 +183,8 @@ export default function LoginPage() {
             </div>
 
             {/* Submit Button */}
-            <button type="submit" className="login-submit-button">
-              Login
+            <button type="submit" className="login-submit-button" disabled={isLoading}>
+              {isLoading ? 'Logging in...' : 'Login'}
             </button>
           </form>
 
