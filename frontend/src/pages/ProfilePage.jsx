@@ -1,10 +1,14 @@
-import { useState } from 'react'
-import { CheckCircle2 } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { CheckCircle2, LogOut, Loader2 } from 'lucide-react'
 import FarmerLayout from '../components/FarmerLayout'
+import { ProfileSkeleton } from '../components/Skeletons'
 import { FARMER_PROFILE } from '../data/farmer-data'
+import { logoutFarmer, getFarmerDashboard } from '../api'
 
 export default function ProfilePage() {
   const [isEditing, setIsEditing] = useState(false)
+  const [isLoggingOut, setIsLoggingOut] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [profile, setProfile] = useState(() => {
     try {
       const stored = localStorage.getItem('currentUser')
@@ -29,9 +33,49 @@ export default function ProfilePage() {
     return FARMER_PROFILE
   })
 
+  useEffect(() => {
+    async function loadProfile() {
+      try {
+        const data = await getFarmerDashboard()
+        if (data && data.user) {
+          const u = data.user
+          setProfile({
+            name: u.full_name || FARMER_PROFILE.name,
+            farmerId: u.farmer_id || (u.mobile_number ? `+91 ${u.mobile_number}` : FARMER_PROFILE.farmerId),
+            mobile: u.mobile_number ? `+91 ${u.mobile_number}` : FARMER_PROFILE.mobile,
+            village: u.village || FARMER_PROFILE.village,
+            district: u.district || FARMER_PROFILE.district,
+            state: u.state || FARMER_PROFILE.state,
+            initials: u.full_name
+              ? u.full_name.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()
+              : FARMER_PROFILE.initials,
+            verified: true,
+          })
+        }
+      } catch (err) {
+        // use existing/fallback profile
+      } finally {
+        setLoading(false)
+      }
+    }
+    loadProfile()
+  }, [])
+
   const handleSave = (e) => {
     e.preventDefault()
     setIsEditing(false)
+  }
+
+  const handleLogout = async () => {
+    setIsLoggingOut(true)
+    try {
+      await logoutFarmer()
+    } catch (err) {
+      console.error('Logout error:', err)
+    } finally {
+      localStorage.removeItem('currentUser')
+      window.location.href = '/login'
+    }
   }
 
   return (
@@ -39,8 +83,11 @@ export default function ProfilePage() {
       <div className="profile-page-container">
         <h1 className="page-main-heading">My Profile</h1>
 
-        <div className="portal-card profile-main-card">
-          {/* Avatar with Verified check */}
+        {loading ? (
+          <ProfileSkeleton />
+        ) : (
+          <div className="portal-card profile-main-card">
+            {/* Avatar with Verified check */}
           <div className="profile-avatar-wrap">
             <div className="profile-avatar-circle">
               <span>{profile.initials}</span>
@@ -85,6 +132,24 @@ export default function ProfilePage() {
                   onClick={() => setIsEditing(true)}
                 >
                   Edit Profile
+                </button>
+                <button
+                  type="button"
+                  className="profile-logout-btn"
+                  onClick={handleLogout}
+                  disabled={isLoggingOut}
+                >
+                  {isLoggingOut ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" />
+                      <span>Logging out...</span>
+                    </>
+                  ) : (
+                    <>
+                      <LogOut size={16} />
+                      <span>Log Out</span>
+                    </>
+                  )}
                 </button>
               </div>
             </div>
@@ -155,7 +220,8 @@ export default function ProfilePage() {
             </form>
           )}
         </div>
-      </div>
+      )}
+    </div>
     </FarmerLayout>
   )
 }

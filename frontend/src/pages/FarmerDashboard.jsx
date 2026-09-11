@@ -1,5 +1,10 @@
-import { Wheat } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Wheat, Loader2, Calendar, Clock, MapPin, ArrowRight } from 'lucide-react'
 import FarmerLayout from '../components/FarmerLayout'
+import AuthModal from '../components/AuthModal'
+import BookingDetailModal from '../components/BookingDetailModal'
+import { DashboardSkeleton } from '../components/Skeletons'
+import { getFarmerDashboard } from '../api'
 import {
   DASHBOARD_METRICS,
   FARMER_PROFILE,
@@ -7,45 +12,118 @@ import {
 } from '../data/farmer-data'
 
 export default function FarmerDashboard() {
-  let farmerName = FARMER_PROFILE.name
-  let farmerId = FARMER_PROFILE.farmerId
-
-  try {
-    const stored = localStorage.getItem('currentUser')
-    if (stored) {
-      const parsed = JSON.parse(stored)
-      if (parsed.full_name) farmerName = parsed.full_name
-      if (parsed.farmer_id) farmerId = parsed.farmer_id
+  const [user, setUser] = useState(() => {
+    try {
+      const stored = localStorage.getItem('currentUser')
+      return stored ? JSON.parse(stored) : null
+    } catch {
+      return null
     }
-  } catch (err) {
-    // Ignore JSON parse errors
-  }
+  })
+  const [dashboardData, setDashboardData] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [showAuthModal, setShowAuthModal] = useState(false)
+  const [selectedBooking, setSelectedBooking] = useState(null)
+  const [authModalMessage, setAuthModalMessage] = useState('')
+
+  useEffect(() => {
+    let isMounted = true
+    async function fetchDashboard() {
+      try {
+        const data = await getFarmerDashboard()
+        if (isMounted && data.user) {
+          setUser(data.user)
+          setDashboardData(data)
+          localStorage.setItem('currentUser', JSON.stringify(data.user))
+        }
+      } catch (err) {
+        if (err.status === 401 || err.status === 403) {
+          localStorage.removeItem('currentUser')
+          if (isMounted) {
+            setAuthModalMessage(
+              err.message === 'Unauthorized'
+                ? 'Your session has expired or you are not logged in. Please sign in to access your farmer dashboard.'
+                : err.message || 'Please log in to continue.'
+            )
+            setShowAuthModal(true)
+          }
+          return
+        }
+        if (isMounted) {
+          setError(err.message || 'Failed to load dashboard data')
+        }
+      } finally {
+        if (isMounted) {
+          setLoading(false)
+        }
+      }
+    }
+
+    fetchDashboard()
+
+    return () => {
+      isMounted = false
+    }
+  }, [])
+
+  const farmerName = user?.full_name || FARMER_PROFILE.name
+  const farmerId = user?.farmer_id || (user?.mobile_number ? `+91 ${user.mobile_number}` : FARMER_PROFILE.farmerId)
+  const locationInfo = [user?.village, user?.district, user?.state].filter(Boolean).join(', ')
 
   return (
-    <FarmerLayout activePath="/dashboard">
-      <div className="dashboard-container">
-        {/* Welcome Header */}
-        <div className="dashboard-welcome-row">
+    <FarmerLayout activePath="/dashboard" user={user}>
+      {/* Auth Required Popup Modal */}
+      <AuthModal
+        isOpen={showAuthModal}
+        title="Authentication Required"
+        message={authModalMessage}
+        redirectDelay={3}
+        onLogin={() => {
+          window.location.href = '/login'
+        }}
+      />
+      {loading && !dashboardData ? (
+        <DashboardSkeleton />
+      ) : (
+        <div className="dashboard-container">
+          {/* Welcome Header */}
+          <div className="dashboard-welcome-row">
           <div>
             <h1 className="dashboard-title">Welcome, {farmerName}</h1>
-            <p className="dashboard-sub">Farmer ID: {farmerId}</p>
+            <p className="dashboard-sub">
+              Farmer ID: {farmerId}
+              {locationInfo && <span> &bull; {locationInfo}</span>}
+            </p>
           </div>
+          {loading && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+              <Loader2 size={16} className="animate-spin" />
+              <span>Updating data...</span>
+            </div>
+          )}
         </div>
 
         {/* Top 3 Summary Metrics */}
         <div className="dashboard-metrics-grid">
           <div className="metric-card">
-            <span className="metric-value">{DASHBOARD_METRICS.upcomingBookings}</span>
+            <span className="metric-value">
+              {dashboardData?.metrics?.upcomingBookings ?? DASHBOARD_METRICS.upcomingBookings}
+            </span>
             <span className="metric-label">Upcoming Bookings</span>
           </div>
 
           <div className="metric-card">
-            <span className="metric-value">{DASHBOARD_METRICS.totalProcurements}</span>
+            <span className="metric-value">
+              {dashboardData?.metrics?.totalProcurements ?? DASHBOARD_METRICS.totalProcurements}
+            </span>
             <span className="metric-label">Total Procurements</span>
           </div>
 
           <div className="metric-card">
-            <span className="metric-value">{DASHBOARD_METRICS.totalEarnings}</span>
+            <span className="metric-value">
+              {dashboardData?.metrics?.totalEarnings ?? DASHBOARD_METRICS.totalEarnings}
+            </span>
             <span className="metric-label">Total Earnings</span>
           </div>
         </div>
@@ -69,35 +147,96 @@ export default function FarmerDashboard() {
         {/* Upcoming Booking Section */}
         <div className="portal-card upcoming-booking-section">
           <div className="upcoming-header-row">
-            <h2 className="card-section-title">Upcoming Booking</h2>
+            <div className="upcoming-header-title-group">
+              <h2 className="card-section-title">Upcoming Booking</h2>
+              <span className="upcoming-active-pill">
+                {(dashboardData?.metrics?.upcomingBookings ?? 1) > 0
+                  ? `${dashboardData?.metrics?.upcomingBookings ?? 1} Active Slot`
+                  : 'No Active Slots'}
+              </span>
+            </div>
             <a href="/my-bookings" className="card-link-muted">
-              View All
+              <span>View All</span>
+              <ArrowRight size={14} />
             </a>
           </div>
 
-          <div className="upcoming-booking-item">
-            <div className="upcoming-item-left">
-              <div className="crop-icon-badge">
-                <Wheat size={22} />
-              </div>
-              <div className="upcoming-details">
-                <span className="upcoming-crop-name">{UPCOMING_BOOKING.produce}</span>
-                <span className="upcoming-center-name">{UPCOMING_BOOKING.center}</span>
-              </div>
-            </div>
+          {(dashboardData ? dashboardData.upcoming_booking : UPCOMING_BOOKING) ? (
+            (() => {
+              const booking = dashboardData ? dashboardData.upcoming_booking : UPCOMING_BOOKING
+              return (
+                <div
+                  className="upcoming-booking-card"
+                  onClick={() => setSelectedBooking(booking)}
+                  title="Click to view booking details"
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault()
+                      setSelectedBooking(booking)
+                    }
+                  }}
+                >
+                  {/* Left: Produce & Center */}
+                  <div className="booking-card-main">
+                    <div className="crop-icon-badge">
+                      <Wheat size={24} strokeWidth={2.2} />
+                    </div>
+                    <div className="booking-crop-info">
+                      <div className="booking-crop-top">
+                        <span className="booking-crop-name">{booking.produce}</span>
+                        <span className="booking-id-tag">#{booking.id}</span>
+                      </div>
+                      <div className="booking-center-info">
+                        <MapPin size={14} className="booking-meta-icon" />
+                        <span>{booking.center}</span>
+                      </div>
+                    </div>
+                  </div>
 
-            <div className="upcoming-timing">
-              <span className="upcoming-date">{UPCOMING_BOOKING.date}</span>
-              <span className="upcoming-time">{UPCOMING_BOOKING.time}</span>
-            </div>
+                  {/* Middle: Schedule Chips */}
+                  <div className="booking-schedule-strip">
+                    <div className="schedule-meta-chip">
+                      <Calendar size={15} className="schedule-meta-icon" />
+                      <span>{booking.date}</span>
+                    </div>
+                    <div className="schedule-meta-chip">
+                      <Clock size={15} className="schedule-meta-icon" />
+                      <span>{booking.time}</span>
+                    </div>
+                  </div>
 
-            <div className="upcoming-token-badge">
-              <span className="token-code">{UPCOMING_BOOKING.token}</span>
-              <span className="token-status-pill">{UPCOMING_BOOKING.status}</span>
+                  {/* Right: Digital Queue Token Ticket */}
+                  <div className="booking-token-ticket">
+                    <span className="token-ticket-label">Queue Token</span>
+                    <span className="token-ticket-number">{booking.token}</span>
+                    <div className="token-ticket-status">
+                      <span className="token-status-dot" />
+                      <span>{booking.status}</span>
+                    </div>
+                  </div>
+                </div>
+              )
+            })()
+          ) : (
+            <div style={{ textAlign: 'center', padding: '28px 16px', color: 'var(--muted)' }}>
+              <p style={{ marginBottom: '14px', fontSize: '0.95rem' }}>You have no upcoming slot bookings.</p>
+              <a href="/book-slot" className="quick-btn primary">
+                + Book a Slot
+              </a>
             </div>
-          </div>
+          )}
         </div>
       </div>
+    )}
+
+    {/* Booking Details Modal */}
+    <BookingDetailModal
+      isOpen={!!selectedBooking}
+      booking={selectedBooking}
+      onClose={() => setSelectedBooking(null)}
+    />
     </FarmerLayout>
   )
 }

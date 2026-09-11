@@ -12,3 +12,5 @@ class Farmer(Base):
     state = Column(String,nullable=False)
     village = Column(String,nullable=False)
     district = Column(String,nullable=False)
+    longitude = Column(String,nullable=True)
+    latitude = Column(String,nullable=True)

@@ -1,16 +1,51 @@
+import { useState, useEffect } from 'react'
 import { Ticket } from 'lucide-react'
 import FarmerLayout from '../components/FarmerLayout'
+import { LiveQueueSkeleton } from '../components/Skeletons'
 import { LIVE_QUEUE_DATA } from '../data/farmer-data'
+import { getLiveQueue } from '../api'
 
 export default function LiveQueuePage() {
+  const [queueData, setQueueData] = useState(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    let isMounted = true
+    async function fetchQueue() {
+      try {
+        const data = await getLiveQueue(1001)
+        if (isMounted && data) {
+          setQueueData(data)
+        }
+      } catch (err) {
+        if (isMounted && !queueData) {
+          setQueueData(LIVE_QUEUE_DATA)
+        }
+      } finally {
+        if (isMounted) setLoading(false)
+      }
+    }
+
+    fetchQueue()
+    const timer = setInterval(fetchQueue, 15000)
+
+    return () => {
+      isMounted = false
+      clearInterval(timer)
+    }
+  }, [])
+
   return (
     <FarmerLayout activePath="/live-queue">
-      <div className="live-queue-container">
-        {/* Header with Live badge */}
-        <div className="live-queue-header">
+      {loading && !queueData ? (
+        <LiveQueueSkeleton />
+      ) : (
+        <div className="live-queue-container">
+          {/* Header with Live badge */}
+          <div className="live-queue-header">
           <div>
-            <h1 className="page-main-heading">Live Queue - {LIVE_QUEUE_DATA.center}</h1>
-            <p className="page-sub-heading">Last updated: {LIVE_QUEUE_DATA.lastUpdated}</p>
+            <h1 className="page-main-heading">Live Queue - {queueData.center}</h1>
+            <p className="page-sub-heading">Last updated: {queueData.lastUpdated}</p>
           </div>
           <div className="live-pulse-badge">
             <span className="pulse-dot" />
@@ -23,7 +58,7 @@ export default function LiveQueuePage() {
           {/* Now Serving Card */}
           <div className="queue-card now-serving-card">
             <span className="queue-card-label">Now Serving</span>
-            <div className="serving-token-display">{LIVE_QUEUE_DATA.nowServing}</div>
+            <div className="serving-token-display">{queueData.nowServing}</div>
           </div>
 
           {/* Your Token Card */}
@@ -31,22 +66,22 @@ export default function LiveQueuePage() {
             <span className="queue-card-label">Your Token</span>
             <div className="your-token-row">
               <Ticket size={24} className="ticket-icon" />
-              <span className="your-token-number">{LIVE_QUEUE_DATA.yourToken}</span>
+              <span className="your-token-number">{queueData.yourToken}</span>
             </div>
             <p className="queue-ahead-text">
-              <span className="ahead-highlight">{LIVE_QUEUE_DATA.farmersAhead} farmers ahead</span>
+              <span className="ahead-highlight">{queueData.farmersAhead} farmers ahead</span>
             </p>
-            <p className="estimated-wait-text">Estimated wait: {LIVE_QUEUE_DATA.estimatedWait}</p>
+            <p className="estimated-wait-text">Estimated wait: {queueData.estimatedWait}</p>
           </div>
         </div>
 
         {/* Upcoming Tokens List */}
         <div className="portal-card upcoming-tokens-card">
-          <h2 className="card-section-title">Upcoming Tokens</h2>
+          <h2 className="card-section-title">Queue Status</h2>
           <div className="tokens-table-wrap">
             <table className="tokens-table">
               <tbody>
-                {LIVE_QUEUE_DATA.queue.map((item) => (
+                {queueData.queue.map((item) => (
                   <tr
                     key={item.token}
                     className={`token-row ${item.isCurrent ? 'current-user-row' : ''}`}
@@ -72,6 +107,7 @@ export default function LiveQueuePage() {
           </div>
         </div>
       </div>
+    )}
     </FarmerLayout>
   )
 }

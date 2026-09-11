@@ -1,7 +1,7 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { AlertCircle, ArrowLeft, Building2, Eye, EyeOff, IdCard, Lock } from 'lucide-react'
 import Brand from '../components/Brand'
-import { loginFarmer } from '../api'
+import { loginFarmer, checkAuthSession } from '../api'
 
 export default function LoginPage() {
   const [role, setRole] = useState('Farmer')
@@ -11,6 +11,16 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+
+  useEffect(() => {
+    async function verifySession() {
+      const session = await checkAuthSession()
+      if (session && session.authenticated) {
+        window.location.href = '/dashboard'
+      }
+    }
+    verifySession()
+  }, [])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
