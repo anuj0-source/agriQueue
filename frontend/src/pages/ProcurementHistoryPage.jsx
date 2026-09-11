@@ -1,15 +1,35 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { ChevronDown } from 'lucide-react'
 import FarmerLayout from '../components/FarmerLayout'
+import { TableRowsSkeleton } from '../components/Skeletons'
 import { PROCUREMENT_HISTORY } from '../data/farmer-data'
+import { getProcurementHistory } from '../api'
 
 export default function ProcurementHistoryPage() {
+  const [history, setHistory] = useState([])
+  const [loading, setLoading] = useState(true)
   const [cropFilter, setCropFilter] = useState('All Crops')
   const [yearFilter, setYearFilter] = useState('All Years')
 
-  const filteredHistory = PROCUREMENT_HISTORY.filter((item) => {
+  useEffect(() => {
+    async function fetchHistory() {
+      try {
+        const data = await getProcurementHistory()
+        if (Array.isArray(data) && data.length > 0) {
+          setHistory(data)
+        }
+      } catch (err) {
+        console.error('Failed to load procurement history:', err)
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchHistory()
+  }, [])
+
+  const filteredHistory = history.filter((item) => {
     const matchesCrop = cropFilter === 'All Crops' || item.produce === cropFilter
-    const matchesYear = yearFilter === 'All Years' || item.date.includes(yearFilter)
+    const matchesYear = yearFilter === 'All Years' || (item.date && item.date.includes(yearFilter))
     return matchesCrop && matchesYear
   })
 
@@ -63,18 +83,28 @@ export default function ProcurementHistoryPage() {
                 </tr>
               </thead>
               <tbody>
-                {filteredHistory.map((row) => (
-                  <tr key={row.id}>
-                    <td className="cell-date">{row.date}</td>
-                    <td>{row.center}</td>
-                    <td className="cell-produce">{row.produce}</td>
-                    <td>{row.quantity}</td>
-                    <td className="cell-amount">{row.amount}</td>
-                    <td>
-                      <span className="status-pill completed">{row.status}</span>
+                {loading ? (
+                  <TableRowsSkeleton rows={5} columns={6} />
+                ) : filteredHistory.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} style={{ textAlign: 'center', padding: '36px', color: 'var(--muted)' }}>
+                      No procurement records found.
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  filteredHistory.map((row) => (
+                    <tr key={row.id}>
+                      <td className="cell-date">{row.date}</td>
+                      <td>{row.center}</td>
+                      <td className="cell-produce">{row.produce}</td>
+                      <td>{row.quantity}</td>
+                      <td className="cell-amount">{row.amount}</td>
+                      <td>
+                        <span className="status-pill completed">{row.status}</span>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>

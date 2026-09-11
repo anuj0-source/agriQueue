@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Building2,
   Calendar as CalendarIcon,
@@ -7,25 +7,60 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock,
+  Loader2,
   Search,
   Sprout,
 } from 'lucide-react'
 import FarmerLayout from '../components/FarmerLayout'
 import Brand from '../components/Brand'
+import AuthModal from '../components/AuthModal'
+import { CenterCardsSkeleton } from '../components/Skeletons'
+import { getProcurementCenters, getCenterSlots, createBooking } from '../api'
 import { PROCUREMENT_CENTERS, TIME_SLOTS } from '../data/farmer-data'
 
 export default function BookSlotPage() {
   const [step, setStep] = useState(1) // 1: Select Center, 2: Date & Time, 3: Confirm, 4: Success
   const [searchTerm, setSearchTerm] = useState('')
+  const [centers, setCenters] = useState(PROCUREMENT_CENTERS)
+  const [loadingCenters, setLoadingCenters] = useState(true)
   const [selectedCenter, setSelectedCenter] = useState(PROCUREMENT_CENTERS[0])
-  const [selectedDate, setSelectedDate] = useState(10) // 10 Sep 2025
+  const [selectedDate, setSelectedDate] = useState(12) // 12 Sep 2025
   const [selectedSlot, setSelectedSlot] = useState(TIME_SLOTS[1]) // 10:00 - 11:00 AM
   const [selectedProduce, setSelectedProduce] = useState('Wheat')
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [confirmedBooking, setConfirmedBooking] = useState(null)
+  const [showAuthModal, setShowAuthModal] = useState(false)
+  const [bookingError, setBookingError] = useState('')
 
-  const filteredCenters = PROCUREMENT_CENTERS.filter((center) =>
+  useEffect(() => {
+    async function loadCenters() {
+      try {
+        const data = await getProcurementCenters()
+        if (data && data.length > 0) {
+          // Merge with mock images for visuals
+          const enriched = data.map((c, idx) => ({
+            ...c,
+            image: c.image || PROCUREMENT_CENTERS[idx % PROCUREMENT_CENTERS.length]?.image,
+            location: `${c.village}, ${c.district} • ${c.state}`,
+            crops: c.crops || 'Wheat, Rice, Maize',
+            availableSlots: c.available_slots || c.daily_capacity || 20,
+          }))
+          setCenters(enriched)
+          setSelectedCenter(enriched[0])
+        }
+      } catch (err) {
+        console.warn('Using fallback centers:', err)
+      } finally {
+        setLoadingCenters(false)
+      }
+    }
+    loadCenters()
+  }, [])
+
+  const filteredCenters = centers.filter((center) =>
     center.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    center.location.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    center.crops.toLowerCase().includes(searchTerm.toLowerCase())
+    (center.location && center.location.toLowerCase().includes(searchTerm.toLowerCase())) ||
+    (center.crops && center.crops.toLowerCase().includes(searchTerm.toLowerCase()))
   )
 
   // Calendar dates representation for Sep 2025
@@ -67,6 +102,15 @@ export default function BookSlotPage() {
   return (
     <FarmerLayout activePath="/book-slot">
       <div className="book-slot-container">
+        <AuthModal
+          isOpen={showAuthModal}
+          title="Authentication Required"
+          message="Please log in to confirm your booking and generate your digital queue token."
+          redirectDelay={3}
+          onLogin={() => {
+            window.location.href = '/login'
+          }}
+        />
         {step < 4 && (
           <>
             <h1 className="page-main-heading">
@@ -110,35 +154,43 @@ export default function BookSlotPage() {
             </div>
 
             {/* Centers List */}
-            <div className="centers-list">
-              {filteredCenters.map((center) => (
-                <div key={center.id} className="center-card">
-                  <img
-                    src={center.image}
-                    alt={center.name}
-                    className="center-thumbnail"
-                  />
-                  <div className="center-info">
-                    <h3 className="center-name">{center.name}</h3>
-                    <p className="center-location">{center.location}</p>
-                    <p className="center-crops">{center.crops}</p>
+            {loadingCenters ? (
+              <CenterCardsSkeleton count={3} />
+            ) : filteredCenters.length === 0 ? (
+              <div className="portal-card" style={{ textAlign: 'center', padding: '32px 20px', color: 'var(--muted)' }}>
+                <p>No procurement centers found matching "{searchTerm}".</p>
+              </div>
+            ) : (
+              <div className="centers-list">
+                {filteredCenters.map((center) => (
+                  <div key={center.id} className="center-card">
+                    <img
+                      src={center.image}
+                      alt={center.name}
+                      className="center-thumbnail"
+                    />
+                    <div className="center-info">
+                      <h3 className="center-name">{center.name}</h3>
+                      <p className="center-location">{center.location}</p>
+                      <p className="center-crops">{center.crops}</p>
+                    </div>
+                    <div className="center-action-col">
+                      <span className="slots-badge">{center.availableSlots} slots available</span>
+                      <button
+                        type="button"
+                        className="select-center-btn"
+                        onClick={() => {
+                          setSelectedCenter(center)
+                          setStep(2)
+                        }}
+                      >
+                        Select
+                      </button>
+                    </div>
                   </div>
-                  <div className="center-action-col">
-                    <span className="slots-badge">{center.availableSlots} slots available</span>
-                    <button
-                      type="button"
-                      className="select-center-btn"
-                      onClick={() => {
-                        setSelectedCenter(center)
-                        setStep(2)
-                      }}
-                    >
-                      Select
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
@@ -316,8 +368,14 @@ export default function BookSlotPage() {
               {/* Note Banner */}
               <div className="confirm-info-banner">
                 <CheckCircle2 size={18} className="info-icon" />
-                <span>Token will be generated after confirmation.</span>
+                <span>Token will be generated automatically after confirmation.</span>
               </div>
+
+              {bookingError && (
+                <div className="auth-error-banner" style={{ margin: '14px 0 0' }}>
+                  <span>{bookingError}</span>
+                </div>
+              )}
             </div>
 
             {/* Bottom Actions */}
@@ -326,15 +384,48 @@ export default function BookSlotPage() {
                 type="button"
                 className="step-btn outline"
                 onClick={() => setStep(2)}
+                disabled={isSubmitting}
               >
                 Back
               </button>
               <button
                 type="button"
                 className="step-btn primary"
-                onClick={() => setStep(4)}
+                onClick={async () => {
+                  setIsSubmitting(true)
+                  setBookingError('')
+                  try {
+                    const payload = {
+                      procurement_center_id: selectedCenter.id,
+                      produce: selectedProduce,
+                      quantity_kg: 1000,
+                      slot_id: selectedSlot.slot_id || 2,
+                      slot_time: selectedSlot.time,
+                      booking_date: `2025-09-${String(selectedDate).padStart(2, '0')}`,
+                    }
+                    const data = await createBooking(payload)
+                    setConfirmedBooking(data)
+                    setStep(4)
+                  } catch (err) {
+                    if (err.status === 401 || err.status === 403) {
+                      setShowAuthModal(true)
+                      return
+                    }
+                    setBookingError(err.message || 'Failed to confirm booking.')
+                  } finally {
+                    setIsSubmitting(false)
+                  }
+                }}
+                disabled={isSubmitting}
               >
-                Confirm Booking
+                {isSubmitting ? (
+                  <>
+                    <Loader2 size={16} className="animate-spin" />
+                    <span>Booking Slot...</span>
+                  </>
+                ) : (
+                  'Confirm Booking'
+                )}
               </button>
             </div>
           </div>
@@ -354,30 +445,40 @@ export default function BookSlotPage() {
               </div>
 
               <h2 className="success-title">Booking Confirmed!</h2>
-              <p className="success-sub">Your token number is</p>
+              <p className="success-sub">Your digital queue token number is</p>
 
               {/* Token Display Pill */}
               <div className="success-token-box">
-                <span className="success-token-code">A-042</span>
+                <span className="success-token-code">
+                  {confirmedBooking?.formatted_token || 'A-042'}
+                </span>
               </div>
 
               {/* Specs Summary List */}
               <div className="success-specs-list">
                 <div className="spec-item">
                   <Building2 size={16} className="spec-icon" />
-                  <span className="spec-text">{selectedCenter.name}</span>
+                  <span className="spec-text">
+                    {confirmedBooking?.center_name || selectedCenter.name}
+                  </span>
                 </div>
                 <div className="spec-item">
                   <CalendarIcon size={16} className="spec-icon" />
-                  <span className="spec-text">{selectedDate} September 2025</span>
+                  <span className="spec-text">
+                    {confirmedBooking?.formatted_date || `${selectedDate} September 2025`}
+                  </span>
                 </div>
                 <div className="spec-item">
                   <Clock size={16} className="spec-icon" />
-                  <span className="spec-text">{selectedSlot.time}</span>
+                  <span className="spec-text">
+                    {confirmedBooking?.slot_time || selectedSlot.time}
+                  </span>
                 </div>
                 <div className="spec-item">
                   <Sprout size={16} className="spec-icon" />
-                  <span className="spec-text">{selectedProduce}</span>
+                  <span className="spec-text">
+                    {confirmedBooking?.produce || selectedProduce} ({confirmedBooking?.quantity_kg || 1000} kg)
+                  </span>
                 </div>
               </div>
 

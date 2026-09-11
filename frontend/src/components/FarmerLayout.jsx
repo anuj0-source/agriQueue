@@ -24,25 +24,27 @@ const NAV_ITEMS = [
   { label: 'Profile', path: '/profile', icon: UserRound },
 ]
 
-export default function FarmerLayout({ activePath, children }) {
+export default function FarmerLayout({ activePath, user, children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
   let initials = FARMER_PROFILE.initials
-  try {
-    const stored = localStorage.getItem('currentUser')
-    if (stored) {
-      const u = JSON.parse(stored)
-      if (u.full_name) {
-        initials = u.full_name
-          .split(' ')
-          .map((n) => n[0])
-          .join('')
-          .slice(0, 2)
-          .toUpperCase()
-      }
+  const currentUser = user || (() => {
+    try {
+      const stored = localStorage.getItem('currentUser')
+      return stored ? JSON.parse(stored) : null
+    } catch {
+      return null
     }
-  } catch (err) {
-    // Ignore error
+  })()
+
+  if (currentUser?.full_name) {
+    initials = currentUser.full_name
+      .trim()
+      .split(/\s+/)
+      .map((n) => n[0])
+      .join('')
+      .slice(0, 2)
+      .toUpperCase()
   }
 
   return (

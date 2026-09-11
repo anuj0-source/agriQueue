@@ -2,14 +2,23 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from routes.auth import router as auth_router
-from database import Base, engine
-import models.farmer  # register Farmer model with Base.metadata
+from routes.dashboard import router as dashboard_router
+from routes.centers import router as centers_router
+from routes.bookings import router as bookings_router
+from routes.queue import router as queue_router
+from database import Base, engine, AsyncSessionLocal
+from seed import seed_initial_data
+import models.farmer
+import models.procurement_center
+import models.booking
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+    async with AsyncSessionLocal() as session:
+        await seed_initial_data(session)
     yield
     await engine.dispose()
 
@@ -30,7 +39,10 @@ app.add_middleware(
 )
 
 app.include_router(auth_router)
-
+app.include_router(dashboard_router)
+app.include_router(centers_router)
+app.include_router(bookings_router)
+app.include_router(queue_router)
 
 @app.get("/")
 async def read_root():
@@ -39,4 +51,4 @@ async def read_root():
 
 @app.get("/health")
 async def get_health():
-    return {"status": "ok"}
+    return {"status": "ok"}

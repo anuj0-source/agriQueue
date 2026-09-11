@@ -1,9 +1,9 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { AlertCircle, ArrowLeft, CheckCircle2, ChevronDown, LockKeyhole, Mail, MapPin, UserRound } from 'lucide-react'
 import Brand from '../components/Brand'
 import FormField from '../components/FormField'
 import indiaDistricts from '../data/india-districts.json'
-import { createFarmerAccount } from '../api'
+import { createFarmerAccount, checkAuthSession } from '../api'
 
 const districtsByState = indiaDistricts.districts.reduce((locations, { state, district }) => {
   if (!locations[state]) locations[state] = []
@@ -39,6 +39,16 @@ export default function CreateAccountPage() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+
+  useEffect(() => {
+    async function verifySession() {
+      const session = await checkAuthSession()
+      if (session && session.authenticated) {
+        window.location.href = '/dashboard'
+      }
+    }
+    verifySession()
+  }, [])
 
   const districts = selectedState ? districtsByState[selectedState] : []
 
@@ -135,9 +145,18 @@ export default function CreateAccountPage() {
           )}
 
           <form onSubmit={handleSubmit} autoComplete="off">
+            {/* Off-screen dummy inputs to absorb browser password manager auto-fill */}
+            <div style={{ position: 'absolute', opacity: 0, height: 0, width: 0, overflow: 'hidden', zIndex: -1 }} aria-hidden="true">
+              <input type="text" name="fake_username_autofill" tabIndex={-1} autoComplete="off" />
+              <input type="password" name="fake_password_autofill" tabIndex={-1} autoComplete="new-password" />
+            </div>
+
             <FormField
               icon={UserRound}
               label="Full Name"
+              name="farmer_full_name"
+              id="farmer_full_name"
+              autoComplete="off"
               placeholder="Enter your full name"
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
@@ -146,6 +165,9 @@ export default function CreateAccountPage() {
             <FormField
               icon={Mail}
               label="Mobile Number"
+              name="farmer_mobile"
+              id="farmer_mobile"
+              autoComplete="off"
               placeholder="10-digit mobile number"
               type="tel"
               inputMode="numeric"
@@ -157,6 +179,9 @@ export default function CreateAccountPage() {
             <FormField
               icon={LockKeyhole}
               label="Farmer ID (Optional)"
+              name="farmer_id_input"
+              id="farmer_id_input"
+              autoComplete="off"
               placeholder="Enter farmer ID if available"
               value={farmerId}
               onChange={(e) => setFarmerId(e.target.value)}
@@ -182,6 +207,9 @@ export default function CreateAccountPage() {
             <FormField
               icon={MapPin}
               label="Village / Town"
+              name="farmer_village"
+              id="farmer_village"
+              autoComplete="off"
               placeholder="Enter your village or town"
               value={village}
               onChange={(e) => setVillage(e.target.value)}
@@ -190,6 +218,9 @@ export default function CreateAccountPage() {
             <FormField
               icon={LockKeyhole}
               label="Password"
+              name="farmer_registration_password"
+              id="farmer_registration_password"
+              autoComplete="new-password"
               type="password"
               placeholder="Create a secure password"
               value={password}
