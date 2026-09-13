@@ -1,0 +1,116 @@
+import { useEffect, useState } from 'react'
+import AdminLayout from '../components/AdminLayout'
+import { getAdminPayments } from '../api'
+import { CreditCard, CheckCircle2, Clock, AlertCircle, ArrowUpRight, ShieldCheck } from 'lucide-react'
+
+export default function AdminPaymentsPage() {
+  const [paymentData, setPaymentData] = useState(null)
+
+  useEffect(() => {
+    async function load() {
+      const data = await getAdminPayments()
+      setPaymentData(data)
+    }
+    load()
+  }, [])
+
+  const summary = paymentData?.summary || {
+    total_disbursed: '₹1.8 Cr',
+    pending_approvals: '₹4.2 Lakh',
+    successful_transactions: 5420,
+    processing: 38,
+  }
+
+  const transactions = paymentData?.transactions || []
+
+  return (
+    <AdminLayout activePath="/admin/payments" title="Direct Benefit Transfer (DBT) Payments" showTimeframe={false}>
+      <div className="admin-page-container">
+        {/* Payment KPI Cards */}
+        <section className="admin-kpi-grid">
+          <div className="admin-kpi-card">
+            <div className="kpi-value" style={{ color: '#0a7a4a' }}>{summary.total_disbursed}</div>
+            <div className="kpi-label">Total Disbursed</div>
+          </div>
+          <div className="admin-kpi-card">
+            <div className="kpi-value" style={{ color: '#f59e0b' }}>{summary.pending_approvals}</div>
+            <div className="kpi-label">Pending Approval</div>
+          </div>
+          <div className="admin-kpi-card">
+            <div className="kpi-value">{summary.successful_transactions.toLocaleString()}</div>
+            <div className="kpi-label">Successful Credits</div>
+          </div>
+          <div className="admin-kpi-card">
+            <div className="kpi-value" style={{ color: '#3b82f6' }}>{summary.processing}</div>
+            <div className="kpi-label">In-Transit Batches</div>
+          </div>
+        </section>
+
+        {/* Transaction Ledger Table */}
+        <div className="admin-panel-card table-panel-card">
+          <div className="panel-header">
+            <h2 className="panel-title">Recent DBT Disbursements</h2>
+            <button
+              type="button"
+              className="admin-btn primary"
+              style={{ padding: '6px 14px', fontSize: '13px' }}
+              onClick={() => alert('All queued DBT payment batches have been approved for bank dispatch.')}
+            >
+              Approve Queued Batches
+            </button>
+          </div>
+
+          <div className="admin-table-responsive">
+            <table className="admin-data-table">
+              <thead>
+                <tr>
+                  <th>Transaction ID</th>
+                  <th>Beneficiary Farmer</th>
+                  <th>Crop &amp; Volume</th>
+                  <th>Amount Disbursed</th>
+                  <th>Destination Account</th>
+                  <th>Date</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {transactions.map((tx) => (
+                  <tr key={tx.id}>
+                    <td>
+                      <span className="id-code-badge">{tx.id}</span>
+                    </td>
+                    <td>
+                      <div>
+                        <strong>{tx.farmer_name}</strong>
+                        <div style={{ fontSize: '11px', color: '#64748b' }}>{tx.farmer_id}</div>
+                      </div>
+                    </td>
+                    <td>
+                      <span>{tx.produce} • {tx.quantity_kg?.toLocaleString()} kg</span>
+                    </td>
+                    <td>
+                      <strong style={{ color: '#0a7a4a', fontSize: '15px' }}>
+                        ₹{tx.amount?.toLocaleString()}
+                      </strong>
+                    </td>
+                    <td>
+                      <span className="bank-acc-text">{tx.bank_account}</span>
+                    </td>
+                    <td>
+                      <span style={{ fontSize: '12px', color: '#64748b' }}>{tx.date}</span>
+                    </td>
+                    <td>
+                      <span className={`status-pill ${tx.status === 'Credited' ? 'active' : 'pending'}`}>
+                        {tx.status}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </AdminLayout>
+  )
+}

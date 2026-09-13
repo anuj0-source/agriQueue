@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Bell,
   BookmarkPlus,
@@ -46,6 +46,12 @@ export default function FarmerLayout({ activePath, user, children }) {
       .slice(0, 2)
       .toUpperCase()
   }
+
+  useEffect(() => {
+    if (currentUser?.role?.toLowerCase() === 'admin') {
+      window.location.href = '/admin'
+    }
+  }, [currentUser])
 
   return (
     <div className="farmer-portal-layout">
@@ -116,7 +122,6 @@ export default function FarmerLayout({ activePath, user, children }) {
             <a href="/profile" className="portal-avatar-pill" aria-label="View profile">
               <span className="portal-avatar-circle">{initials}</span>
             </a>
-
           </div>
         </header>
 

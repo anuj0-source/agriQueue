@@ -11,6 +11,7 @@ import jwt
 from datetime import datetime, timedelta, timezone
 from dotenv import load_dotenv
 import os
+from models.admin import Admin
 
 router = APIRouter(
     prefix="/auth",
@@ -39,15 +40,28 @@ def verify_token(token:str):
         return None
         
 @router.post("/login")
-async def login(data: LoginForm, request: Request, response: Response, db: AsyncSession = Depends(get_db)):
-    
-    user = await db.scalar(
-        select(Farmer).where(Farmer.mobile_number == data.mobile_number)
-    )
+async def login(
+    data: LoginForm,
+    role: str = "farmer",
+    request: Request = None,
+    response: Response = None,
+    db: AsyncSession = Depends(get_db)
+):
+    user = None
+    role_lower = (role or "farmer").lower()
+
+    if role_lower == "admin":
+        user = await db.scalar(
+            select(Admin).where(Admin.mobile_number == data.mobile_number)
+        )
+    else:
+        user = await db.scalar(
+            select(Farmer).where(Farmer.mobile_number == data.mobile_number)
+        )
     
     if not user:
         response.status_code = 400
-        return {"success": False, "message": "User not found or Invalid password"}
+        return {"success": False, "message": f"{role_lower} not found or Invalid password"}
 
     hashed_pass = user.hashed_password
     entered_pass = data.password
@@ -60,7 +74,7 @@ async def login(data: LoginForm, request: Request, response: Response, db: Async
         response.status_code = 400
         return {"success": False, "message": "User not found or Invalid password"}
     
-    token = create_token(user.id,"farmer")
+    token = create_token(user.id, role_lower)
     response.set_cookie(
         key="access_token",
         value=token,
@@ -72,14 +86,16 @@ async def login(data: LoginForm, request: Request, response: Response, db: Async
     return {
         "success": True,
         "message": "Login successful",
+        "role": role,
         "user": {
             "id": user.id,
             "full_name": user.full_name,
             "mobile_number": user.mobile_number,
-            "farmer_id": user.farmer_id,
-            "state": user.state,
-            "district": user.district,
-            "village": user.village,
+            "farmer_id": getattr(user, "farmer_id", None),
+            "state": getattr(user, "state", None),
+            "district": getattr(user, "district", None),
+            "village": getattr(user, "village", None),
+            "role": role_lower,
         }
     }
 
@@ -134,22 +150,28 @@ async def get_me(
         return {"authenticated": False, "message": "Not authenticated"}
 
     user_id = payload.get("user_id")
-    user = await db.scalar(select(Farmer).where(Farmer.id == user_id))
+    role = payload.get("role", "farmer")
+    if role == "admin":
+        user = await db.scalar(select(Admin).where(Admin.id == user_id))
+    else:
+        user = await db.scalar(select(Farmer).where(Farmer.id == user_id))
+
     if not user:
         response.status_code = 401
         return {"authenticated": False, "message": "User not found"}
 
     return {
         "authenticated": True,
-        "role": payload.get("role", "farmer"),
+        "role": role,
         "user": {
             "id": user.id,
             "full_name": user.full_name,
             "mobile_number": user.mobile_number,
-            "farmer_id": user.farmer_id,
-            "state": user.state,
-            "district": user.district,
-            "village": user.village,
+            "farmer_id": getattr(user, "farmer_id", None),
+            "state": getattr(user, "state", None),
+            "district": getattr(user, "district", None),
+            "village": getattr(user, "village", None),
+            "role": role,
         }
     }
 
