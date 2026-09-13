@@ -44,7 +44,11 @@ export default function CreateAccountPage() {
     async function verifySession() {
       const session = await checkAuthSession()
       if (session && session.authenticated) {
-        window.location.href = '/dashboard'
+        if (session.role === 'admin' || session.user?.role === 'admin') {
+          window.location.href = '/admin'
+        } else {
+          window.location.href = '/dashboard'
+        }
       }
     }
     verifySession()

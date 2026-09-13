@@ -6,19 +6,20 @@ from routes.dashboard import router as dashboard_router
 from routes.centers import router as centers_router
 from routes.bookings import router as bookings_router
 from routes.queue import router as queue_router
+from routes.admin import router as admin_router
 from database import Base, engine, AsyncSessionLocal
-from seed import seed_initial_data
 import models.farmer
 import models.procurement_center
 import models.booking
+import models.slot
+import models.produce
+import models.admin
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-    async with AsyncSessionLocal() as session:
-        await seed_initial_data(session)
     yield
     await engine.dispose()
 
@@ -43,6 +44,7 @@ app.include_router(dashboard_router)
 app.include_router(centers_router)
 app.include_router(bookings_router)
 app.include_router(queue_router)
+app.include_router(admin_router)
 
 @app.get("/")
 async def read_root():

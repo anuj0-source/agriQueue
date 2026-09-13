@@ -8,6 +8,7 @@ import {
   ChevronRight,
   Clock,
   Loader2,
+  Scale,
   Search,
   Sprout,
 } from 'lucide-react'
@@ -27,6 +28,7 @@ export default function BookSlotPage() {
   const [selectedDate, setSelectedDate] = useState(12) // 12 Sep 2025
   const [selectedSlot, setSelectedSlot] = useState(TIME_SLOTS[1]) // 10:00 - 11:00 AM
   const [selectedProduce, setSelectedProduce] = useState('Wheat')
+  const [quantityKg, setQuantityKg] = useState('1000')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [confirmedBooking, setConfirmedBooking] = useState(null)
   const [showAuthModal, setShowAuthModal] = useState(false)
@@ -365,6 +367,32 @@ export default function BookSlotPage() {
                 </div>
               </div>
 
+              <div className="confirm-row">
+                <div className="confirm-icon-wrap">
+                  <Scale size={20} />
+                </div>
+                <div className="confirm-row-body" style={{ flex: 1 }}>
+                  <span className="confirm-label">Quantity (kg)</span>
+                  <div className="quantity-input-wrap">
+                    <input
+                      type="number"
+                      min="1"
+                      max="50000"
+                      step="10"
+                      className="quantity-number-input"
+                      placeholder="e.g. 1000"
+                      value={quantityKg}
+                      onChange={(e) => setQuantityKg(e.target.value)}
+                      required
+                    />
+                    <span className="quantity-unit-tag">kg</span>
+                  </div>
+                  <span className="confirm-val-sub" style={{ marginTop: '4px' }}>
+                    Est. value: ₹{((Number(quantityKg) || 0) * (selectedProduce === 'Wheat' ? 23 : selectedProduce === 'Rice' ? 22 : 21)).toLocaleString()} (at ₹{selectedProduce === 'Wheat' ? 23 : selectedProduce === 'Rice' ? 22 : 21}/kg MSP)
+                  </span>
+                </div>
+              </div>
+
               {/* Note Banner */}
               <div className="confirm-info-banner">
                 <CheckCircle2 size={18} className="info-icon" />
@@ -392,13 +420,14 @@ export default function BookSlotPage() {
                 type="button"
                 className="step-btn primary"
                 onClick={async () => {
+                  const parsedQty = Math.max(1, parseInt(quantityKg, 10) || 1000)
                   setIsSubmitting(true)
                   setBookingError('')
                   try {
                     const payload = {
                       procurement_center_id: selectedCenter.id,
                       produce: selectedProduce,
-                      quantity_kg: 1000,
+                      quantity_kg: parsedQty,
                       slot_id: selectedSlot.slot_id || 2,
                       slot_time: selectedSlot.time,
                       booking_date: `2025-09-${String(selectedDate).padStart(2, '0')}`,
@@ -477,7 +506,7 @@ export default function BookSlotPage() {
                 <div className="spec-item">
                   <Sprout size={16} className="spec-icon" />
                   <span className="spec-text">
-                    {confirmedBooking?.produce || selectedProduce} ({confirmedBooking?.quantity_kg || 1000} kg)
+                    {confirmedBooking?.produce || selectedProduce} ({confirmedBooking?.quantity_kg ?? quantityKg} kg)
                   </span>
                 </div>
               </div>
