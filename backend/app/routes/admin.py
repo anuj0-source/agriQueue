@@ -14,6 +14,19 @@ router = APIRouter(
     prefix="/admin",
     tags=["admin"]
 )
+import jwt
+from dotenv import load_dotenv
+import os
+load_dotenv()
+SECRET=os.getenv("SECRET_KEY")
+ALGORITHM=os.getenv("ALGORITHM")
+def format_currency(value):
+    if value >= 10_000_000:
+        return f"₹{value / 10_000_000:.1f} Cr"
+    elif value >= 100_000:
+        return f"₹{value / 100_000:.1f} Lakh"
+    else:
+        return f"₹{value:,}"
 
 @router.get("/dashboard")
 async def get_admin_dashboard(
@@ -33,11 +46,10 @@ async def get_admin_dashboard(
     bookings_count = await db.scalar(select(func.count(Booking.id))) or 0
     total_val_sum = await db.scalar(select(func.sum(Booking.total_price))) or 0
 
-    # Format numbers to match admin specifications / screenshot
-    display_farmers = "1,240" if farmers_count <= 20 else f"{farmers_count:,}"
-    display_centers = centers_count
-    display_procurements = "5,620" if bookings_count <= 50 else f"{bookings_count:,}"
-    display_payments = "₹1.8 Cr"
+    display_farmers = f"{farmers_count:,}"
+    display_centers = f"{centers_count:,}"
+    display_procurements = f"{bookings_count:,}"
+    display_payments = format_currency(total_val_sum)
 
     # Crop Distribution
     crop_stats = await db.execute(
@@ -45,21 +57,47 @@ async def get_admin_dashboard(
     )
     raw_crops = dict(crop_stats.all())
     total_c = sum(raw_crops.values()) or 1
+    
+    colors = {"Wheat": "#3b82f6", "Rice": "#f59e0b", "Maize": "#10b981", "Pulses": "#8b5cf6"}
+    crop_distribution = []
+    for produce, count in raw_crops.items():
+        percent = round((count / total_c) * 100)
+        crop_distribution.append({
+            "crop": produce, 
+            "percent": percent, 
+            "color": colors.get(produce, "#8b5cf6")
+        })
 
-    crop_distribution = [
-        {"crop": "Wheat", "percent": 60, "color": "#3b82f6"},
-        {"crop": "Rice", "percent": 20, "color": "#f59e0b"},
-        {"crop": "Maize", "percent": 10, "color": "#10b981"},
-        {"crop": "Pulses", "percent": 10, "color": "#8b5cf6"},
-    ]
+    if not crop_distribution:
+        crop_distribution = [
+            {"crop": "Wheat", "percent": 0, "color": "#3b82f6"},
+            {"crop": "Rice", "percent": 0, "color": "#f59e0b"},
+            {"crop": "Maize", "percent": 0, "color": "#10b981"},
+            {"crop": "Pulses", "percent": 0, "color": "#8b5cf6"},
+        ]
 
-    # Procurements Trend
-    procurements_trend = [
-        {"month": "Jul", "value": 15},
-        {"month": "Aug", "value": 30},
-        {"month": "Sep", "value": 22},
-        {"month": "Oct", "value": 45},
-    ]
+    # Procurements Trend (group by month)
+    from sqlalchemy import extract
+    trend_stats = await db.execute(
+        select(extract('month', Booking.booked_at), func.count(Booking.id))
+        .group_by(extract('month', Booking.booked_at))
+        .order_by(extract('month', Booking.booked_at))
+    )
+    month_names = {1: "Jan", 2: "Feb", 3: "Mar", 4: "Apr", 5: "May", 6: "Jun", 
+                   7: "Jul", 8: "Aug", 9: "Sep", 10: "Oct", 11: "Nov", 12: "Dec"}
+    
+    procurements_trend = []
+    for month_num, count in trend_stats:
+        procurements_trend.append({"month": month_names.get(int(month_num), "Unknown"), "value": count})
+        
+    if not procurements_trend:
+        # Fallback empty chart if no bookings
+        procurements_trend = [
+            {"month": "Jul", "value": 0},
+            {"month": "Aug", "value": 0},
+            {"month": "Sep", "value": 0},
+            {"month": "Oct", "value": 0},
+        ]
 
     # Recent Activities
     recent_bookings = (
@@ -82,22 +120,22 @@ async def get_admin_dashboard(
                 "time": b.booked_at.strftime("%I:%M %p"),
                 "status": b.status,
             })
-    else:
-        recent_activities = [
-            {"id": 1, "text": "New farmer registered", "time": "10:24 AM", "status": "Completed"},
-            {"id": 2, "text": "Payment processed", "time": "09:16 AM", "status": "Completed"},
-            {"id": 3, "text": "Slot booked - Center A", "time": "08:45 AM", "status": "Confirmed"},
-            {"id": 4, "text": "Grain inspection passed (Wheat 2000kg)", "time": "08:12 AM", "status": "Completed"},
-            {"id": 5, "text": "Procurement center capacity updated", "time": "Yesterday", "status": "Completed"},
-        ]
 
     # Center Performance
-    center_performance = [
-        {"name": "Center A", "performance": 90, "total_slots": 200, "booked": 180},
-        {"name": "Center B", "performance": 70, "total_slots": 150, "booked": 105},
-        {"name": "Center C", "performance": 66, "total_slots": 180, "booked": 120},
-        {"name": "Center D", "performance": 85, "total_slots": 220, "booked": 187},
-    ]
+    centers_db = (await db.scalars(select(ProcurementCenter))).all()
+    center_performance = []
+    for c in centers_db:
+        perf = round((c.current_capacity / max(c.daily_capacity, 1)) * 100)
+        center_performance.append({
+            "name": c.name,
+            "performance": min(perf, 100),
+            "total_slots": c.daily_capacity,
+            "booked": c.current_capacity
+        })
+        
+    # Sort by performance desc and take top 4
+    center_performance.sort(key=lambda x: x["performance"], reverse=True)
+    center_performance = center_performance[:4]
 
     return {
         "metrics": {
@@ -143,7 +181,10 @@ async def get_admin_center_details(center_id: int, db: AsyncSession = Depends(ge
         raise HTTPException(status_code=404, detail="Center not found")
         
     from models.slot import Slot
-    slots = (await db.scalars(select(Slot).where(Slot.center_id == center_id).order_by(Slot.slot_date, Slot.start_time))).all()
+    slots = (await db.scalars(select(Slot).where(Slot.center_id == center_id).order_by(Slot.start_time))).all()
+    
+    from models.produce import Produce
+    produces = (await db.scalars(select(Produce).where(Produce.center_id == center_id))).all()
     
     utilization = round((center.current_capacity / max(center.daily_capacity, 1)) * 100)
     
@@ -154,8 +195,8 @@ async def get_admin_center_details(center_id: int, db: AsyncSession = Depends(ge
         "district": center.district,
         "village": center.village,
         "address": center.address,
-        "daily_capacity": center.daily_capacity,
-        "current_capacity": center.current_capacity,
+        "daily_capacity": center.daily_capacity / 100,
+        "current_capacity": center.current_capacity / 100,
         "utilization": utilization,
         "opening_time": center.opening_time,
         "closing_time": center.closing_time,
@@ -165,13 +206,17 @@ async def get_admin_center_details(center_id: int, db: AsyncSession = Depends(ge
         "longitude": center.longitude,
         "slots": [{
             "id": s.id,
-            "slot_date": s.slot_date,
             "start_time": s.start_time,
             "end_time": s.end_time,
             "capacity": s.capacity,
             "booked_count": s.booked_count,
             "status": s.status,
-        } for s in slots]
+        } for s in slots],
+        "crops": [{
+            "id": p.id,
+            "name": p.produce_name,
+            "price_per_kg": p.price_per_kg
+        } for p in produces]
     }
 
 @router.post("/centers")
@@ -193,7 +238,21 @@ async def create_admin_center(data: Dict[str, Any], db: AsyncSession = Depends(g
         created_by=1,
         created_at=datetime.now(),
     )
+    produces = data.get("crops", [])
     db.add(new_center)
+    await db.flush()
+
+    for p in produces:
+        produce_name=p.get("name")
+        price=p.get("price_per_kg")
+
+        produce = Produce(
+            center_id=new_center.id,
+            produce_name=produce_name,
+            price_per_kg=price,
+        )
+        db.add(produce)
+        
     await db.commit()
     await db.refresh(new_center)
     return {"success": True, "center_id": new_center.id}
@@ -203,7 +262,6 @@ async def create_admin_slot(data: Dict[str, Any], db: AsyncSession = Depends(get
     from models.slot import Slot
     new_slot = Slot(
         center_id=int(data["center_id"]),
-        slot_date=data["slot_date"],
         start_time=data["start_time"],
         end_time=data["end_time"],
         capacity=int(data.get("capacity", 30)),
@@ -228,7 +286,7 @@ async def get_admin_users(db: AsyncSession = Depends(get_db)):
         result.append({
             "id": f.id,
             "name": f.full_name,
-            "farmer_id": f.farmer_id or f"FK{100000 + f.id}",
+            "farmer_id": f.farmer_id or "N/A",
             "mobile": f.mobile_number,
             "location": f"{f.village}, {f.district} • {f.state}",
             "role": "Farmer",
@@ -255,7 +313,6 @@ async def get_admin_slots(
             "id": s.id,
             "center_id": c.id,
             "center_name": c.name,
-            "slot_date": s.slot_date,
             "time": f"{s.start_time} - {s.end_time}",
             "capacity": s.capacity,
             "booked_count": s.booked_count,
@@ -294,6 +351,23 @@ async def get_admin_procurements(db: AsyncSession = Depends(get_db)):
 
 @router.get("/payments")
 async def get_admin_payments(db: AsyncSession = Depends(get_db)):
+    # Calculate real summary
+    completed_bookings = (await db.execute(
+        select(func.sum(Booking.total_price), func.count(Booking.id))
+        .where(Booking.status == "Completed")
+    )).first()
+    
+    confirmed_bookings = (await db.execute(
+        select(func.sum(Booking.total_price), func.count(Booking.id))
+        .where(Booking.status == "Confirmed")
+    )).first()
+
+    total_disbursed = completed_bookings[0] or 0
+    successful_tx = completed_bookings[1] or 0
+
+    pending_approvals = confirmed_bookings[0] or 0
+    processing_tx = confirmed_bookings[1] or 0
+
     # Group or list DBT disbursements
     rows = (
         await db.execute(
@@ -321,30 +395,35 @@ async def get_admin_payments(db: AsyncSession = Depends(get_db)):
 
     return {
         "summary": {
-            "total_disbursed": "₹1.8 Cr",
-            "pending_approvals": "₹4.2 Lakh",
-            "successful_transactions": 5420,
-            "processing": 38,
+            "total_disbursed": format_currency(total_disbursed),
+            "pending_approvals": format_currency(pending_approvals),
+            "successful_transactions": successful_tx,
+            "processing": processing_tx,
         },
         "transactions": items,
     }
+@router.delete("/delete-center/{center_id}")
+async def delete_procurement_center(center_id: int, db: AsyncSession = Depends(get_db),access_token : str = Cookie(default=None)):
 
-@router.get("/reports")
-async def get_admin_reports():
-    return {
-        "monthly_tonnage": [
-            {"month": "May", "target": 800, "achieved": 840},
-            {"month": "Jun", "target": 950, "achieved": 910},
-            {"month": "Jul", "target": 1200, "achieved": 1290},
-            {"month": "Aug", "target": 1400, "achieved": 1460},
-            {"month": "Sep", "target": 1600, "achieved": 1580},
-        ],
-        "crop_revenue": [
-            {"crop": "Wheat", "revenue": "₹94.5 Lakh", "volume": "4,108 MT"},
-            {"crop": "Rice", "revenue": "₹52.8 Lakh", "volume": "2,400 MT"},
-            {"crop": "Maize", "revenue": "₹21.0 Lakh", "volume": "1,000 MT"},
-            {"crop": "Pulses", "revenue": "₹11.7 Lakh", "volume": "180 MT"},
-        ],
-        "turnout_rate": "96.4%",
-        "avg_processing_time": "22 mins",
-    }
+    if not access_token:
+        return{"success": False,"message": "You are not logged in."}
+
+    payload = jwt.decode(access_token,SECRET,algorithms=[ALGORITHM])
+
+    if payload["role"] != "admin":
+        return{"success": False,"message": "You are not authorized to perform this action."}
+    
+    center = await db.get(ProcurementCenter, center_id)
+
+    if not center:
+        return {"success": False, "message": "Center not found"}
+        
+    # Delete associated slots first
+    from models.slot import Slot
+    from sqlalchemy import delete
+    await db.execute(delete(Slot).where(Slot.center_id == center_id))
+    await db.execute(delete(Booking).where(Booking.procurement_center_id == center_id))
+    await db.execute(delete(ProcurementCenter).where(ProcurementCenter.id == center_id))
+    
+    await db.commit()
+    return {"success": True, "message": "Center deleted successfully"}

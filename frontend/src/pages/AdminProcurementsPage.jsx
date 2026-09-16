@@ -5,13 +5,20 @@ import { Search, Sprout, Building2, CheckCircle2, Clock } from 'lucide-react'
 
 export default function AdminProcurementsPage() {
   const [procurements, setProcurements] = useState([])
+  const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [cropFilter, setCropFilter] = useState('All')
 
   useEffect(() => {
     async function load() {
-      const data = await getAdminProcurements()
-      setProcurements(data)
+      try {
+        const data = await getAdminProcurements()
+        setProcurements(data || [])
+      } catch (err) {
+        console.error(err)
+      } finally {
+        setLoading(false)
+      }
     }
     load()
   }, [])
@@ -72,44 +79,78 @@ export default function AdminProcurementsPage() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((item) => (
-                  <tr key={item.id}>
-                    <td>
-                      <span className="token-tag">{item.token}</span>
-                    </td>
-                    <td>
-                      <div>
-                        <strong>{item.farmer_name}</strong>
-                        <div style={{ fontSize: '11px', color: '#64748b' }}>{item.farmer_id}</div>
+                {loading ? (
+                  [1, 2, 3, 4, 5].map((i) => (
+                    <tr key={i} className="skeleton-table-row">
+                      <td><div className="skeleton-badge skeleton"></div></td>
+                      <td>
+                        <div className="skeleton-text skeleton medium" style={{ marginBottom: '4px' }}></div>
+                        <div className="skeleton-text skeleton short"></div>
+                      </td>
+                      <td><div className="skeleton-text skeleton medium"></div></td>
+                      <td><div className="skeleton-badge skeleton" style={{ width: '80px' }}></div></td>
+                      <td><div className="skeleton-text skeleton short"></div></td>
+                      <td><div className="skeleton-text skeleton medium"></div></td>
+                      <td><div className="skeleton-text skeleton short"></div></td>
+                      <td><div className="skeleton-badge skeleton"></div></td>
+                    </tr>
+                  ))
+                ) : filtered.length === 0 ? (
+                  <tr>
+                    <td colSpan="8" style={{ padding: 0, border: 'none' }}>
+                      <div className="empty-state-wrapper" style={{ margin: '24px' }}>
+                        <div className="empty-state-icon">
+                          <Sprout size={32} />
+                        </div>
+                        <h3 className="empty-state-title">No Procurements Found</h3>
+                        <p className="empty-state-subtitle">
+                          {search || cropFilter !== 'All'
+                            ? "No procurement records match your current filters."
+                            : "There are no procurement batches recorded in the system yet."}
+                        </p>
                       </div>
-                    </td>
-                    <td>
-                      <span className="loc-text">{item.center_name}</span>
-                    </td>
-                    <td>
-                      <div className="crop-cell">
-                        <span className="crop-pill">{item.produce}</span>
-                        <span className="grade-sub">{item.produce_type}</span>
-                      </div>
-                    </td>
-                    <td>
-                      <strong>{item.quantity_kg?.toLocaleString()} kg</strong>
-                    </td>
-                    <td>
-                      <strong style={{ color: '#0a7a4a' }}>
-                        ₹{item.total_price?.toLocaleString()}
-                      </strong>
-                    </td>
-                    <td>
-                      <span style={{ fontSize: '12px', color: '#64748b' }}>{item.date}</span>
-                    </td>
-                    <td>
-                      <span className={`status-pill ${item.status === 'Completed' ? 'active' : 'pending'}`}>
-                        {item.status}
-                      </span>
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  filtered.map((item) => (
+                    <tr key={item.id}>
+                      <td>
+                        <span className="token-tag">{item.token}</span>
+                      </td>
+                      <td>
+                        <div>
+                          <strong>{item.farmer_name}</strong>
+                          <div style={{ fontSize: '11px', color: '#64748b' }}>{item.farmer_id}</div>
+                        </div>
+                      </td>
+                      <td>
+                        <span className="loc-text">{item.center_name}</span>
+                      </td>
+                      <td>
+                        <div className="crop-cell">
+                          <span className="crop-pill">{item.produce}</span>
+                          <span className="grade-sub">{item.produce_type}</span>
+                        </div>
+                      </td>
+                      <td>
+                        <strong>{item.quantity_kg?.toLocaleString()} kg</strong>
+                      </td>
+                      <td>
+                        <strong style={{ color: '#0a7a4a' }}>
+                          ₹{item.total_price?.toLocaleString()}
+                        </strong>
+                      </td>
+                      <td>
+                        <span style={{ fontSize: '12px', color: '#64748b' }}>{item.date}</span>
+                      </td>
+                      <td>
+                        <span className={`status-pill ${item.status === 'Completed' ? 'active' : 'pending'}`}>
+                          {item.status}
+                        </span>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>

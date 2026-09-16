@@ -22,11 +22,13 @@ import { PROCUREMENT_CENTERS, TIME_SLOTS } from '../data/farmer-data'
 export default function BookSlotPage() {
   const [step, setStep] = useState(1) // 1: Select Center, 2: Date & Time, 3: Confirm, 4: Success
   const [searchTerm, setSearchTerm] = useState('')
-  const [centers, setCenters] = useState(PROCUREMENT_CENTERS)
+  const [centers, setCenters] = useState([])
   const [loadingCenters, setLoadingCenters] = useState(true)
-  const [selectedCenter, setSelectedCenter] = useState(PROCUREMENT_CENTERS[0])
-  const [selectedDate, setSelectedDate] = useState(12) // 12 Sep 2025
-  const [selectedSlot, setSelectedSlot] = useState(TIME_SLOTS[1]) // 10:00 - 11:00 AM
+  const [selectedCenter, setSelectedCenter] = useState(null)
+  const [selectedDate, setSelectedDate] = useState(new Date().getDate())
+  const [selectedSlot, setSelectedSlot] = useState(null)
+  const [slotsList, setSlotsList] = useState([])
+  const [loadingSlots, setLoadingSlots] = useState(false)
   const [selectedProduce, setSelectedProduce] = useState('Wheat')
   const [quantityKg, setQuantityKg] = useState('1000')
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -44,8 +46,8 @@ export default function BookSlotPage() {
             ...c,
             image: c.image || PROCUREMENT_CENTERS[idx % PROCUREMENT_CENTERS.length]?.image,
             location: `${c.village}, ${c.district} • ${c.state}`,
-            crops: c.crops || 'Wheat, Rice, Maize',
-            availableSlots: c.available_slots || c.daily_capacity || 20,
+            crops: c.crops && c.crops.length > 0 ? c.crops.map(crop => crop.name).join(', ') : 'No produces listed',
+            availableSlots: Math.max(0, (c.available_slots || c.daily_capacity || 0) / 100),
           }))
           setCenters(enriched)
           setSelectedCenter(enriched[0])
@@ -59,47 +61,55 @@ export default function BookSlotPage() {
     loadCenters()
   }, [])
 
+  useEffect(() => {
+    async function loadSlots() {
+      if (!selectedCenter) return
+      setLoadingSlots(true)
+      try {
+        const slots = await getCenterSlots(selectedCenter.id)
+        setSlotsList(slots)
+        if (slots.length > 0) {
+          const firstAvailable = slots.find(s => s.status !== 'full')
+          setSelectedSlot(firstAvailable || slots[0])
+        } else {
+          setSelectedSlot(null)
+        }
+      } catch (err) {
+        console.error('Failed to load slots:', err)
+        setSlotsList([])
+        setSelectedSlot(null)
+      } finally {
+        setLoadingSlots(false)
+      }
+    }
+    loadSlots()
+  }, [selectedCenter, selectedDate])
+
   const filteredCenters = centers.filter((center) =>
     center.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (center.location && center.location.toLowerCase().includes(searchTerm.toLowerCase())) ||
     (center.crops && center.crops.toLowerCase().includes(searchTerm.toLowerCase()))
   )
 
-  // Calendar dates representation for Sep 2025
-  // Sep 1, 2025 is Monday
-  const calendarDays = [
-    { day: null }, // Su
-    { day: 1 },
-    { day: 2 },
-    { day: 3 },
-    { day: 4 },
-    { day: 5 },
-    { day: 6 },
-    { day: 7 },
-    { day: 8 },
-    { day: 9 },
-    { day: 10, hasSlots: true, slotsCount: 10 },
-    { day: 11, hasSlots: true, slotsCount: 10 },
-    { day: 12, hasSlots: true, slotsCount: 10 },
-    { day: 13 },
-    { day: 14 },
-    { day: 15 },
-    { day: 16 },
-    { day: 17, hasSlots: true, slotsCount: 20 },
-    { day: 18, hasSlots: true, slotsCount: 10 },
-    { day: 19, hasSlots: true, slotsCount: 20 },
-    { day: 20 },
-    { day: 21 },
-    { day: 22 },
-    { day: 23 },
-    { day: 24 },
-    { day: 25 },
-    { day: 26 },
-    { day: 27 },
-    { day: 28 },
-    { day: 29 },
-    { day: 30 },
-  ]
+  // Dynamic Calendar for Current Month
+  const today = new Date()
+  const currentMonth = today.getMonth()
+  const currentYear = today.getFullYear()
+  const todayDate = today.getDate()
+  
+  const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate()
+  const firstDayOfMonth = new Date(currentYear, currentMonth, 1).getDay()
+  
+  const calendarDays = []
+  for (let i = 0; i < firstDayOfMonth; i++) {
+    calendarDays.push({ day: null })
+  }
+  for (let i = 1; i <= daysInMonth; i++) {
+    calendarDays.push({ day: i, hasSlots: true, slotsCount: 10 })
+  }
+  
+  const monthName = today.toLocaleString('default', { month: 'long' })
+  const monthTitle = `${monthName} ${currentYear}`
 
   return (
     <FarmerLayout activePath="/book-slot">
@@ -177,7 +187,7 @@ export default function BookSlotPage() {
                       <p className="center-crops">{center.crops}</p>
                     </div>
                     <div className="center-action-col">
-                      <span className="slots-badge">{center.availableSlots} slots available</span>
+                      <span className="slots-badge">{center.availableSlots} quintals available</span>
                       <button
                         type="button"
                         className="select-center-btn"
@@ -221,7 +231,7 @@ export default function BookSlotPage() {
                   <button type="button" className="cal-nav-btn" aria-label="Previous month">
                     <ChevronLeft size={18} />
                   </button>
-                  <span className="cal-month-title">September 2025</span>
+                  <span className="cal-month-title">{monthTitle}</span>
                   <button type="button" className="cal-nav-btn" aria-label="Next month">
                     <ChevronRight size={18} />
                   </button>
@@ -243,17 +253,20 @@ export default function BookSlotPage() {
                       return <div key={`empty-${idx}`} className="cal-day empty" />
                     }
                     const isSelected = selectedDate === item.day
+                    const isPastDate = item.day < todayDate
+                    
                     return (
                       <button
                         key={item.day}
                         type="button"
-                        className={`cal-day ${isSelected ? 'selected' : ''} ${item.hasSlots ? 'has-slots' : ''}`}
-                        onClick={() => setSelectedDate(item.day)}
+                        className={`cal-day ${isSelected ? 'selected' : ''} ${item.hasSlots && !isPastDate ? 'has-slots' : ''} ${isPastDate ? 'disabled' : ''}`}
+                        onClick={() => {
+                          if (!isPastDate) setSelectedDate(item.day)
+                        }}
+                        disabled={isPastDate}
+                        style={isPastDate ? { opacity: 0.5, cursor: 'not-allowed' } : {}}
                       >
                         <span className="day-number">{item.day}</span>
-                        {item.hasSlots && !isSelected && (
-                          <span className="day-slots-hint">{item.slotsCount}</span>
-                        )}
                       </button>
                     )
                   })}
@@ -264,32 +277,55 @@ export default function BookSlotPage() {
               <div className="portal-card slots-card">
                 <div className="slots-header">
                   <h3 className="slots-title">Available Slots</h3>
-                  <span className="slots-selected-date">Wednesday, {selectedDate} Sep 2025</span>
+                  <span className="slots-selected-date">{monthName} {selectedDate}, {currentYear}</span>
                 </div>
 
                 <div className="slots-list">
-                  {TIME_SLOTS.map((slot) => {
-                    const isSelected = selectedSlot.id === slot.id
-                    const isFull = slot.status === 'full'
+                  {loadingSlots ? (
+                    <div style={{ padding: '20px', textAlign: 'center', color: '#64748b' }}>Loading slots...</div>
+                  ) : slotsList.length === 0 ? (
+                    <div style={{ padding: '20px', textAlign: 'center', color: '#64748b' }}>No time slots configured.</div>
+                  ) : (
+                    slotsList.map((slot) => {
+                      const isSelected = selectedSlot?.id === slot.id
+                      let isFull = slot.status === 'full'
+                      
+                      let isPastSlot = false
+                      if (selectedDate === todayDate) {
+                        const timeParts = slot.time.split('-')[0].trim().match(/(\d+):(\d+)\s*(AM|PM)?/i)
+                        if (timeParts) {
+                          let hours = parseInt(timeParts[1], 10)
+                          const isPM = timeParts[3] && timeParts[3].toUpperCase() === 'PM'
+                          if (isPM && hours !== 12) hours += 12
+                          if (!isPM && hours === 12) hours = 0
+                          const slotTimeObj = new Date(currentYear, currentMonth, selectedDate, hours, parseInt(timeParts[2], 10))
+                          if (slotTimeObj.getTime() < today.getTime()) {
+                            isPastSlot = true
+                            isFull = true // Treat past slots as full/disabled
+                          }
+                        }
+                      }
 
-                    return (
-                      <div
-                        key={slot.id}
-                        className={`slot-item ${isSelected ? 'selected' : ''} ${isFull ? 'full' : ''}`}
-                        onClick={() => {
-                          if (!isFull) setSelectedSlot(slot)
-                        }}
-                      >
-                        <div className="slot-radio-wrap">
-                          <span className={`slot-radio ${isSelected ? 'checked' : ''}`} />
-                          <span className="slot-time-text">{slot.time}</span>
+                      return (
+                        <div
+                          key={slot.id}
+                          className={`slot-item ${isSelected ? 'selected' : ''} ${isFull ? 'full' : ''}`}
+                          onClick={() => {
+                            if (!isFull) setSelectedSlot(slot)
+                          }}
+                          style={isPastSlot ? { opacity: 0.6 } : {}}
+                        >
+                          <div className="slot-radio-wrap">
+                            <span className={`slot-radio ${isSelected ? 'checked' : ''}`} />
+                            <span className="slot-time-text">{slot.time}</span>
+                          </div>
+                          <span className={`slot-availability-pill ${isFull ? 'pill-full' : 'pill-available'}`}>
+                            {isPastSlot ? 'Expired' : (isFull ? 'Full' : `${slot.available} quintals`)}
+                          </span>
                         </div>
-                        <span className={`slot-availability-pill ${isFull ? 'pill-full' : 'pill-available'}`}>
-                          {isFull ? 'Full' : `${slot.available} slots`}
-                        </span>
-                      </div>
-                    )
-                  })}
+                      )
+                    })
+                  )}
                 </div>
               </div>
             </div>
@@ -307,6 +343,7 @@ export default function BookSlotPage() {
                 type="button"
                 className="step-btn primary"
                 onClick={() => setStep(3)}
+                disabled={!selectedSlot}
               >
                 Continue
               </button>
@@ -335,7 +372,7 @@ export default function BookSlotPage() {
                 </div>
                 <div className="confirm-row-body">
                   <span className="confirm-label">Date</span>
-                  <strong className="confirm-val-main">{selectedDate} September 2025</strong>
+                  <strong className="confirm-val-main">{selectedDate} {monthName} {currentYear}</strong>
                 </div>
               </div>
 
@@ -345,7 +382,7 @@ export default function BookSlotPage() {
                 </div>
                 <div className="confirm-row-body">
                   <span className="confirm-label">Time</span>
-                  <strong className="confirm-val-main">{selectedSlot.time}</strong>
+                  <strong className="confirm-val-main">{selectedSlot?.time}</strong>
                 </div>
               </div>
 
@@ -428,9 +465,9 @@ export default function BookSlotPage() {
                       procurement_center_id: selectedCenter.id,
                       produce: selectedProduce,
                       quantity_kg: parsedQty,
-                      slot_id: selectedSlot.slot_id || 2,
-                      slot_time: selectedSlot.time,
-                      booking_date: `2025-09-${String(selectedDate).padStart(2, '0')}`,
+                      slot_id: selectedSlot?.id ? parseInt(selectedSlot.id, 10) : 2,
+                      slot_time: selectedSlot?.time || '',
+                      booking_date: `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(selectedDate).padStart(2, '0')}`,
                     }
                     const data = await createBooking(payload)
                     setConfirmedBooking(data)

@@ -5,12 +5,19 @@ import { Search, UserCheck, Phone, MapPin, Calendar, ShieldCheck } from 'lucide-
 
 export default function AdminUsersPage() {
   const [users, setUsers] = useState([])
+  const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
 
   useEffect(() => {
     async function load() {
-      const data = await getAdminUsers()
-      setUsers(data)
+      try {
+        const data = await getAdminUsers()
+        setUsers(data || [])
+      } catch (err) {
+        console.error(err)
+      } finally {
+        setLoading(false)
+      }
     }
     load()
   }, [])
@@ -57,42 +64,70 @@ export default function AdminUsersPage() {
                 </tr>
               </thead>
               <tbody>
-                {filteredUsers.map((user) => (
-                  <tr key={user.id}>
-                    <td>
-                      <div className="user-name-cell">
-                        <div className="user-avatar-small">
-                          {user.name.split(' ').map((n) => n[0]).join('')}
+                {loading ? (
+                  [1, 2, 3, 4, 5].map((i) => (
+                    <tr key={i} className="skeleton-table-row">
+                      <td><div className="skeleton-text skeleton"></div></td>
+                      <td><div className="skeleton-text skeleton short"></div></td>
+                      <td><div className="skeleton-text skeleton"></div></td>
+                      <td><div className="skeleton-text skeleton medium"></div></td>
+                      <td><div className="skeleton-badge skeleton"></div></td>
+                      <td><div className="skeleton-text skeleton short"></div></td>
+                      <td><div className="skeleton-badge skeleton"></div></td>
+                    </tr>
+                  ))
+                ) : filteredUsers.length === 0 ? (
+                  <tr>
+                    <td colSpan="7" style={{ padding: 0, border: 'none' }}>
+                      <div className="empty-state-wrapper" style={{ margin: '24px' }}>
+                        <div className="empty-state-icon">
+                          <UserCheck size={32} />
                         </div>
-                        <span className="user-full-name">{user.name}</span>
+                        <h3 className="empty-state-title">No Farmers or Staff Found</h3>
+                        <p className="empty-state-subtitle">
+                          {search ? "No users match your current search criteria." : "There are currently no registered users in the system."}
+                        </p>
                       </div>
-                    </td>
-                    <td>
-                      <span className="id-code-badge">{user.farmer_id}</span>
-                    </td>
-                    <td>
-                      <div className="contact-cell">
-                        <Phone size={13} className="cell-sub-icon" />
-                        <span>{user.mobile}</span>
-                      </div>
-                    </td>
-                    <td>
-                      <span className="loc-text">{user.location}</span>
-                    </td>
-                    <td>
-                      <span className="role-tag">{user.role}</span>
-                    </td>
-                    <td>
-                      <span className="count-pill">{user.total_bookings} slots</span>
-                    </td>
-                    <td>
-                      <span className="verify-badge verified">
-                        <ShieldCheck size={14} />
-                        <span>{user.status}</span>
-                      </span>
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  filteredUsers.map((user) => (
+                    <tr key={user.id}>
+                      <td>
+                        <div className="user-name-cell">
+                          <div className="user-avatar-small">
+                            {user.name.split(' ').map((n) => n[0]).join('')}
+                          </div>
+                          <span className="user-full-name">{user.name}</span>
+                        </div>
+                      </td>
+                      <td>
+                        <span className="id-code-badge">{user.farmer_id}</span>
+                      </td>
+                      <td>
+                        <div className="contact-cell">
+                          <Phone size={13} className="cell-sub-icon" />
+                          <span>{user.mobile}</span>
+                        </div>
+                      </td>
+                      <td>
+                        <span className="loc-text">{user.location}</span>
+                      </td>
+                      <td>
+                        <span className="role-tag">{user.role}</span>
+                      </td>
+                      <td>
+                        <span className="count-pill">{user.total_bookings} slots</span>
+                      </td>
+                      <td>
+                        <span className="verify-badge verified">
+                          <ShieldCheck size={14} />
+                          <span>{user.status}</span>
+                        </span>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>

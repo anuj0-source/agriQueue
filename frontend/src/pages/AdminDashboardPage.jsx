@@ -111,8 +111,34 @@ export default function AdminDashboardPage() {
       onTimeframeChange={setTimeframe}
     >
       <div className="admin-dashboard-container">
-        {/* ─── Top 4 Metric Cards ─── */}
-        <section className="admin-kpi-grid" aria-label="Key Performance Indicators">
+        {loading ? (
+          <>
+            {/* ─── Top 4 Metric Cards Skeletons ─── */}
+            <section className="admin-kpi-grid">
+              {[1, 2, 3, 4].map(i => (
+                <div key={i} className="admin-kpi-card skeleton-card skeleton" style={{ gap: '12px', padding: '24px' }}>
+                  <div className="skeleton-text skeleton" style={{ height: '36px', width: '50%' }}></div>
+                  <div className="skeleton-text skeleton short"></div>
+                </div>
+              ))}
+            </section>
+            
+            {/* ─── Middle Visual Grid Skeletons ─── */}
+            <section className="admin-charts-grid">
+              <div className="admin-panel-card skeleton-card skeleton" style={{ minHeight: '280px' }}></div>
+              <div className="admin-panel-card skeleton-card skeleton" style={{ minHeight: '280px' }}></div>
+            </section>
+            
+            {/* ─── Bottom Grid Skeletons ─── */}
+            <section className="admin-lower-grid">
+              <div className="admin-panel-card skeleton-card skeleton" style={{ minHeight: '240px' }}></div>
+              <div className="admin-panel-card skeleton-card skeleton" style={{ minHeight: '240px' }}></div>
+            </section>
+          </>
+        ) : (
+          <>
+            {/* ─── Top 4 Metric Cards ─── */}
+            <section className="admin-kpi-grid" aria-label="Key Performance Indicators">
           <div className="admin-kpi-card">
             <div className="kpi-value">{metrics.total_farmers}</div>
             <div className="kpi-label">Total Farmers</div>
@@ -280,17 +306,23 @@ export default function AdminDashboardPage() {
               <h2 className="panel-title">Recent Activities</h2>
             </div>
             <div className="activities-list">
-              {recentActivities.slice(0, 5).map((act, idx) => (
-                <div key={act.id || idx} className="activity-row">
-                  <div className="activity-icon-wrap">
-                    <CheckCircle2 size={18} className="activity-check-icon" />
-                  </div>
-                  <div className="activity-body">
-                    <span className="activity-text">{act.text}</span>
-                  </div>
-                  <span className="activity-time">{act.time}</span>
+              {recentActivities.length === 0 ? (
+                <div style={{ padding: '24px', textAlign: 'center', color: '#94a3b8', fontSize: '13px' }}>
+                  No recent activities recorded yet.
                 </div>
-              ))}
+              ) : (
+                recentActivities.slice(0, 5).map((act, idx) => (
+                  <div key={act.id || idx} className="activity-row">
+                    <div className="activity-icon-wrap">
+                      <CheckCircle2 size={18} className="activity-check-icon" />
+                    </div>
+                    <div className="activity-body">
+                      <span className="activity-text">{act.text}</span>
+                    </div>
+                    <span className="activity-time">{act.time}</span>
+                  </div>
+                ))
+              )}
             </div>
           </div>
 
@@ -300,21 +332,29 @@ export default function AdminDashboardPage() {
               <h2 className="panel-title">Center Performance</h2>
             </div>
             <div className="performance-list">
-              {centerPerformance.map((center) => (
-                <div key={center.name} className="center-perf-row">
-                  <span className="center-perf-name">{center.name}</span>
-                  <div className="perf-progress-track">
-                    <div
-                      className="perf-progress-fill"
-                      style={{ width: `${center.performance}%` }}
-                    />
-                  </div>
-                  <span className="center-perf-pct">{center.performance}%</span>
+              {centerPerformance.length === 0 ? (
+                <div style={{ padding: '24px', textAlign: 'center', color: '#94a3b8', fontSize: '13px' }}>
+                  No procurement centers active.
                 </div>
-              ))}
+              ) : (
+                centerPerformance.map((center) => (
+                  <div key={center.name} className="center-perf-row">
+                    <span className="center-perf-name">{center.name}</span>
+                    <div className="perf-progress-track">
+                      <div
+                        className="perf-progress-fill"
+                        style={{ width: `${center.performance}%` }}
+                      />
+                    </div>
+                    <span className="center-perf-pct">{center.performance}%</span>
+                  </div>
+                ))
+              )}
             </div>
           </div>
-        </section>
+            </section>
+          </>
+        )}
       </div>
     </AdminLayout>
   )

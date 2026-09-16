@@ -6,16 +6,23 @@ import { Clock, CheckCircle2, AlertCircle, Building2, Filter } from 'lucide-reac
 export default function AdminSlotsPage() {
   const [slots, setSlots] = useState([])
   const [centers, setCenters] = useState([])
+  const [loading, setLoading] = useState(true)
   const [selectedCenterId, setSelectedCenterId] = useState('All')
 
   useEffect(() => {
     async function load() {
-      const [slotsData, centersData] = await Promise.all([
-        getAdminSlots(),
-        getAdminCenters(),
-      ])
-      setSlots(slotsData)
-      setCenters(centersData)
+      try {
+        const [slotsData, centersData] = await Promise.all([
+          getAdminSlots(),
+          getAdminCenters(),
+        ])
+        setSlots(slotsData || [])
+        setCenters(centersData || [])
+      } catch (err) {
+        console.error(err)
+      } finally {
+        setLoading(false)
+      }
     }
     load()
   }, [])
@@ -69,50 +76,80 @@ export default function AdminSlotsPage() {
                 </tr>
               </thead>
               <tbody>
-                {filteredSlots.map((slot) => {
-                  const pct = Math.round((slot.booked_count / Math.max(slot.capacity, 1)) * 100)
-                  return (
-                    <tr key={slot.id}>
-                      <td>
-                        <strong className="center-cell-name">{slot.center_name}</strong>
-                      </td>
-                      <td>
-                        <div className="time-badge">
-                          <Clock size={13} />
-                          <span>{slot.time}</span>
-                        </div>
-                      </td>
-                      <td>{slot.capacity}</td>
-                      <td>
-                        <strong style={{ color: '#0a7a4a' }}>{slot.booked_count}</strong>
-                      </td>
-                      <td>
-                        <span className={`avail-tag ${slot.available === 0 ? 'zero' : ''}`}>
-                          {slot.available} left
-                        </span>
-                      </td>
-                      <td>
-                        <div className="mini-progress-cell">
-                          <div className="perf-progress-track" style={{ height: '6px', width: '90px' }}>
-                            <div
-                              className="perf-progress-fill"
-                              style={{
-                                width: `${pct}%`,
-                                backgroundColor: pct >= 100 ? '#ef4444' : pct > 70 ? '#f59e0b' : '#0a7a4a'
-                              }}
-                            />
-                          </div>
-                          <span className="mini-pct-text">{pct}%</span>
-                        </div>
-                      </td>
-                      <td>
-                        <span className={`status-pill ${slot.status === 'full' ? 'inactive' : 'active'}`}>
-                          {slot.status === 'full' ? 'Full' : 'Available'}
-                        </span>
-                      </td>
+                {loading ? (
+                  [1, 2, 3, 4, 5].map((i) => (
+                    <tr key={i} className="skeleton-table-row">
+                      <td><div className="skeleton-text skeleton medium"></div></td>
+                      <td><div className="skeleton-badge skeleton"></div></td>
+                      <td><div className="skeleton-text skeleton short"></div></td>
+                      <td><div className="skeleton-text skeleton short"></div></td>
+                      <td><div className="skeleton-badge skeleton"></div></td>
+                      <td><div className="skeleton-text skeleton"></div></td>
+                      <td><div className="skeleton-badge skeleton"></div></td>
                     </tr>
-                  )
-                })}
+                  ))
+                ) : filteredSlots.length === 0 ? (
+                  <tr>
+                    <td colSpan="7" style={{ padding: 0, border: 'none' }}>
+                      <div className="empty-state-wrapper" style={{ margin: '24px' }}>
+                        <div className="empty-state-icon">
+                          <Clock size={32} />
+                        </div>
+                        <h3 className="empty-state-title">No Time Slots Configured</h3>
+                        <p className="empty-state-subtitle">
+                          {selectedCenterId !== 'All'
+                            ? "This center doesn't have any time slots configured yet."
+                            : "There are no time slots configured across any of your procurement centers."}
+                        </p>
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
+                  filteredSlots.map((slot) => {
+                    const pct = Math.round((slot.booked_count / Math.max(slot.capacity, 1)) * 100)
+                    return (
+                      <tr key={slot.id}>
+                        <td>
+                          <strong className="center-cell-name">{slot.center_name}</strong>
+                        </td>
+                        <td>
+                          <div className="time-badge">
+                            <Clock size={13} />
+                            <span>{slot.time}</span>
+                          </div>
+                        </td>
+                        <td>{slot.capacity}</td>
+                        <td>
+                          <strong style={{ color: '#0a7a4a' }}>{slot.booked_count}</strong>
+                        </td>
+                        <td>
+                          <span className={`avail-tag ${slot.available === 0 ? 'zero' : ''}`}>
+                            {slot.available} left
+                          </span>
+                        </td>
+                        <td>
+                          <div className="mini-progress-cell">
+                            <div className="perf-progress-track" style={{ height: '6px', width: '90px' }}>
+                              <div
+                                className="perf-progress-fill"
+                                style={{
+                                  width: `${pct}%`,
+                                  backgroundColor: pct > 85 ? '#0a7a4a' : '#16a34a',
+                                }}
+                              />
+                            </div>
+                            <span className="pct-text">{pct}%</span>
+                          </div>
+                        </td>
+                        <td>
+                          <span className={`status-pill ${slot.status === 'Active' ? 'active' : 'inactive'}`}>
+                            {slot.status}
+                          </span>
+                        </td>
+                      </tr>
+                    )
+                  })
+                )}
               </tbody>
             </table>
           </div>
