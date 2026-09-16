@@ -278,6 +278,15 @@ export async function createAdminCenter(payload) {
   return await res.json()
 }
 
+export async function deleteAdminCenter(centerId) {
+  const res = await fetch(`${API_BASE_URL}/admin/delete-center/${centerId}`, {
+    method: 'DELETE',
+    credentials: 'include',
+  })
+  if (!res.ok) throw new Error('Failed to delete center')
+  return await res.json()
+}
+
 export async function createAdminSlot(payload) {
   const res = await fetch(`${API_BASE_URL}/admin/slots`, {
     method: 'POST',

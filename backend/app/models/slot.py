@@ -9,7 +9,6 @@ class Slot(Base):
     id : Mapped[int]=mapped_column(Integer,autoincrement=True,primary_key=True)
 
     center_id : Mapped[int]=mapped_column(ForeignKey("procurement_centers.id"), nullable=False)
-    slot_date : Mapped[str]=mapped_column(String,nullable=False)
     start_time : Mapped[str]=mapped_column(String,nullable=False)
     end_time : Mapped[str]=mapped_column(String,nullable=False)
     capacity : Mapped[int]=mapped_column(Integer,nullable=False)

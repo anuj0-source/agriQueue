@@ -37,16 +37,22 @@ const EMPTY_CENTER = {
 
 const newSlotRow = () => ({
   _id: Math.random().toString(36).slice(2),
-  slot_date: '',
   start_time: '',
   end_time: '',
   capacity: '',
+})
+
+const newCropRow = () => ({
+  _id: Math.random().toString(36).slice(2),
+  name: '',
+  price_per_kg: '',
 })
 
 /* ─── Component ─────────────────────────────── */
 export default function AdminAddCenterPage() {
   const [centerData, setCenterData] = useState(EMPTY_CENTER)
   const [slots, setSlots] = useState([newSlotRow()])
+  const [crops, setCrops] = useState([newCropRow()])
   const [step, setStep] = useState('form') // 'form' | 'saving' | 'done'
   const [error, setError] = useState('')
   const [createdCenterId, setCreatedCenterId] = useState(null)
@@ -60,6 +66,12 @@ export default function AdminAddCenterPage() {
   const removeSlot = (id) => setSlots((prev) => prev.filter((s) => s._id !== id))
   const updateSlot = (id, key, value) =>
     setSlots((prev) => prev.map((s) => (s._id === id ? { ...s, [key]: value } : s)))
+
+  /* Crop rows */
+  const addCrop = () => setCrops((prev) => [...prev, newCropRow()])
+  const removeCrop = (id) => setCrops((prev) => prev.filter((c) => c._id !== id))
+  const updateCrop = (id, key, value) =>
+    setCrops((prev) => prev.map((c) => (c._id === id ? { ...c, [key]: value } : c)))
 
   /* Submit */
   const handleSubmit = async (e) => {
@@ -77,6 +89,10 @@ export default function AdminAddCenterPage() {
         ...centerData,
         pincode: parseInt(centerData.pincode),
         daily_capacity: parseInt(centerData.daily_capacity),
+        crops: crops.map(c => ({
+          name: c.name,
+          price_per_kg: parseFloat(c.price_per_kg) || 0
+        })).filter(c => c.name.trim() !== '')
       })
       const centerId = res.center_id
       setCreatedCenterId(centerId)
@@ -86,7 +102,6 @@ export default function AdminAddCenterPage() {
       for (const slot of slots) {
         await createAdminSlot({
           center_id: centerId,
-          slot_date: slot.slot_date,
           start_time: slot.start_time,
           end_time: slot.end_time,
           capacity: parseInt(slot.capacity),
@@ -124,6 +139,7 @@ export default function AdminAddCenterPage() {
               onClick={() => {
                 setCenterData(EMPTY_CENTER)
                 setSlots([newSlotRow()])
+                setCrops([newCropRow()])
                 setSavedSlots(0)
                 setCreatedCenterId(null)
                 setStep('form')
@@ -338,15 +354,6 @@ export default function AdminAddCenterPage() {
                     <div className="slot-row-number">#{idx + 1}</div>
                     <div className="slot-row-fields">
                       <div className="form-group">
-                        <label>Date</label>
-                        <input
-                          type="date"
-                          required
-                          value={slot.slot_date}
-                          onChange={(e) => updateSlot(slot._id, 'slot_date', e.target.value)}
-                        />
-                      </div>
-                      <div className="form-group">
                         <label>Start Time</label>
                         <div className="input-with-icon">
                           <span className="input-prefix-icon"><Clock size={13} /></span>
@@ -401,6 +408,118 @@ export default function AdminAddCenterPage() {
                 onClick={addSlot}
               >
                 <Plus size={15} /> Add Another Slot
+              </button>
+            </div>
+
+            <div className="add-center-card add-center-slots-card" style={{ marginTop: '24px' }}>
+              <div className="add-center-card-head">
+                <div className="card-head-icon"><CheckCircle2 size={16} /></div>
+                <h2>Accepted Produces</h2>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                {crops.map((crop, index) => (
+                  <div 
+                    key={crop._id} 
+                    style={{ 
+                      position: 'relative',
+                      background: '#f8fafc',
+                      border: '1px solid #e2e8f0',
+                      borderRadius: '12px',
+                      padding: '20px',
+                      transition: 'all 0.2s ease',
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                      <span style={{ fontSize: '14px', fontWeight: '600', color: '#64748b' }}>
+                        Produce #{index + 1}
+                      </span>
+                      {crops.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => removeCrop(crop._id)}
+                          style={{
+                            background: '#fee2e2',
+                            color: '#ef4444',
+                            border: 'none',
+                            borderRadius: '8px',
+                            width: '32px',
+                            height: '32px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            cursor: 'pointer',
+                            transition: 'background-color 0.2s',
+                          }}
+                          aria-label="Remove produce"
+                        >
+                          <Trash2 size={16} strokeWidth={2.5} />
+                        </button>
+                      )}
+                    </div>
+                    
+                    <div style={{ display: 'flex', gap: '16px' }}>
+                      <div className="form-group" style={{ flex: 1, margin: 0 }}>
+                        <label style={{ fontSize: '13px', color: '#475569', marginBottom: '6px' }}>Produce Name</label>
+                        <input
+                          type="text"
+                          placeholder="e.g. Wheat, Rice"
+                          value={crop.name}
+                          onChange={(e) => updateCrop(crop._id, 'name', e.target.value)}
+                          style={{ 
+                            width: '100%', padding: '12px', borderRadius: '8px',
+                            border: '1px solid #cbd5e1', background: '#ffffff',
+                            fontSize: '14px', color: '#0f172a',
+                            boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.05)',
+                            transition: 'border-color 0.2s'
+                          }}
+                        />
+                      </div>
+                      <div className="form-group" style={{ flex: 1, margin: 0 }}>
+                        <label style={{ fontSize: '13px', color: '#475569', marginBottom: '6px' }}>Price per kg (₹)</label>
+                        <input
+                          type="number"
+                          min={0}
+                          step="0.1"
+                          placeholder="e.g. 25.50"
+                          value={crop.price_per_kg}
+                          onChange={(e) => updateCrop(crop._id, 'price_per_kg', e.target.value)}
+                          style={{ 
+                            width: '100%', padding: '12px', borderRadius: '8px',
+                            border: '1px solid #cbd5e1', background: '#ffffff',
+                            fontSize: '14px', color: '#0f172a',
+                            boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.05)',
+                            transition: 'border-color 0.2s'
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <button
+                type="button"
+                onClick={addCrop}
+                style={{
+                  marginTop: '16px',
+                  width: '100%',
+                  padding: '14px',
+                  background: '#f0fdf4',
+                  color: '#16a34a',
+                  border: '1px dashed #bbf7d0',
+                  borderRadius: '12px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  fontSize: '15px',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                <Plus size={18} strokeWidth={2.5} /> Add Another Produce
               </button>
             </div>
 

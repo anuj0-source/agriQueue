@@ -17,7 +17,7 @@ class ProcurementCenterResponse(BaseModel):
     daily_capacity: int
     current_capacity: int
     status: str
-    crops: Optional[str] = "Wheat, Rice, Maize"
+    crops: list[dict]
     available_slots: Optional[int] = 20
 
     class Config:

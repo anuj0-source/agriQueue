@@ -21,7 +21,6 @@ const ADMIN_NAV_ITEMS = [
   { label: 'Slots', path: '/admin/slots', icon: Clock },
   { label: 'Procurements', path: '/admin/procurements', icon: PackageCheck },
   { label: 'Payments', path: '/admin/payments', icon: CreditCard },
-  { label: 'Reports', path: '/admin/reports', icon: BarChart3 },
 ]
 
 export default function AdminLayout({

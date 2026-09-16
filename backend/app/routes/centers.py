@@ -6,19 +6,12 @@ from database import get_db
 from models.procurement_center import ProcurementCenter
 from models.booking import Booking
 from schemas.procurement_center import ProcurementCenterResponse, SlotAvailability
+from models.slot import Slot
 
 router = APIRouter(
     prefix="/centers",
     tags=["procurement_centers"]
 )
-
-DEFAULT_SLOTS = [
-    {"id": "slot-1", "slot_id": 1, "time": "09:00 - 10:00 AM", "capacity": 10},
-    {"id": "slot-2", "slot_id": 2, "time": "10:00 - 11:00 AM", "capacity": 10},
-    {"id": "slot-3", "slot_id": 3, "time": "11:00 - 12:00 PM", "capacity": 10},
-    {"id": "slot-4", "slot_id": 4, "time": "12:00 - 01:00 PM", "capacity": 10},
-    {"id": "slot-5", "slot_id": 5, "time": "01:00 - 02:00 PM", "capacity": 10},
-]
 
 @router.get("", response_model=List[ProcurementCenterResponse])
 async def list_centers(
@@ -35,7 +28,37 @@ async def list_centers(
         )
     result = await db.scalars(query)
     centers = result.all()
-    return centers
+    
+    from models.produce import Produce
+    produces_result = await db.scalars(select(Produce))
+    all_produces = produces_result.all()
+    
+    response = []
+    for c in centers:
+        c_dict = {
+            "id": c.id,
+            "name": c.name,
+            "state": c.state,
+            "district": c.district,
+            "village": c.village,
+            "longitude": c.longitude,
+            "latitude": c.latitude,
+            "opening_time": c.opening_time,
+            "closing_time": c.closing_time,
+            "address": c.address,
+            "pincode": c.pincode,
+            "daily_capacity": c.daily_capacity,
+            "current_capacity": c.current_capacity,
+            "status": c.status,
+            "crops": [
+                {"id": p.id, "name": p.produce_name, "price_per_kg": p.price_per_kg} 
+                for p in all_produces if p.center_id == c.id
+            ],
+            "available_slots": c.daily_capacity - c.current_capacity
+        }
+        response.append(c_dict)
+        
+    return response
 
 @router.get("/{center_id}", response_model=ProcurementCenterResponse)
 async def get_center(
@@ -69,15 +92,17 @@ async def get_center_slots(
         slot_counts[sid] = slot_counts.get(sid, 0) + 1
 
     slots_data = []
-    for s in DEFAULT_SLOTS:
-        booked = slot_counts.get(s["slot_id"], 0)
-        available = max(0, s["capacity"] - booked)
+
+    slots = (await db.scalars(select(Slot).where(Slot.center_id == center_id).order_by(Slot.start_time))).all()
+    for s in slots:
+        available = max(0, s.capacity - s.booked_count)
+        available_quintals = int(available / 100)
         slots_data.append(
             SlotAvailability(
-                id=s["id"],
-                time=s["time"],
-                available=available,
-                status="available" if available > 0 else "full"
+                id=str(s.id),
+                time=f"{s.start_time} - {s.end_time}",
+                available=available_quintals,
+                status="available" if available_quintals > 0 else "full"
             )
         )
     return slots_data
