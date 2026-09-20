@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react'
-import { Wheat, Loader2, Calendar, Clock, MapPin, ArrowRight } from 'lucide-react'
+import { Loader2, Calendar, Clock, MapPin, ArrowRight } from 'lucide-react'
+import CropIcon from '../components/CropIcon'
 import FarmerLayout from '../components/FarmerLayout'
 import AuthModal from '../components/AuthModal'
 import BookingDetailModal from '../components/BookingDetailModal'
 import { DashboardSkeleton } from '../components/Skeletons'
-import { getFarmerDashboard } from '../api'
+import { getFarmerDashboard, subscribePushNotification } from '../api'
 import {
   DASHBOARD_METRICS,
   FARMER_PROFILE,
@@ -66,6 +67,65 @@ export default function FarmerDashboard() {
       isMounted = false
     }
   }, [])
+
+  // Push notification setup
+  useEffect(() => {
+    async function setupPushNotifications() {
+      if ('serviceWorker' in navigator && 'PushManager' in window) {
+        try {
+          const permission = await Notification.requestPermission()
+          if (permission !== 'granted') return
+
+          const registration = await navigator.serviceWorker.register('/sw.js')
+          await navigator.serviceWorker.ready
+
+          let subscription = await registration.pushManager.getSubscription()
+          
+          if (!subscription) {
+            const publicVapidKey = import.meta.env.VITE_VAPID_PUBLIC_KEY
+            if (!publicVapidKey) {
+              console.warn("VITE_VAPID_PUBLIC_KEY is not defined in frontend .env")
+              return
+            }
+            
+            const urlBase64ToUint8Array = (base64String) => {
+              const padding = '='.repeat((4 - base64String.length % 4) % 4)
+              const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/')
+              const rawData = window.atob(base64)
+              const outputArray = new Uint8Array(rawData.length)
+              for (let i = 0; i < rawData.length; ++i) {
+                outputArray[i] = rawData.charCodeAt(i)
+              }
+              return outputArray
+            }
+
+            subscription = await registration.pushManager.subscribe({
+              userVisibleOnly: true,
+              applicationServerKey: urlBase64ToUint8Array(publicVapidKey)
+            })
+          }
+
+          if (subscription) {
+            const subData = JSON.parse(JSON.stringify(subscription))
+            await subscribePushNotification({
+              endpoint: subData.endpoint,
+              p256dh: subData.keys.p256dh,
+              auth: subData.keys.auth
+            })
+            console.log("Subscribed to push notifications")
+          }
+        } catch (error) {
+          console.error("Push Notification Setup Failed:", error)
+        }
+      }
+    }
+    
+    if (user && user.role === 'farmer') {
+      // Delay so it doesn't interrupt immediate page load
+      const timer = setTimeout(setupPushNotifications, 2000)
+      return () => clearTimeout(timer)
+    }
+  }, [user])
 
   const farmerName = user?.full_name || FARMER_PROFILE.name
   const farmerId = user?.farmer_id || (user?.mobile_number ? `+91 ${user.mobile_number}` : FARMER_PROFILE.farmerId)
@@ -181,7 +241,7 @@ export default function FarmerDashboard() {
                   {/* Left: Produce & Center */}
                   <div className="booking-card-main">
                     <div className="crop-icon-badge">
-                      <Wheat size={24} strokeWidth={2.2} />
+                      <CropIcon name={booking.produce} size={32} />
                     </div>
                     <div className="booking-crop-info">
                       <div className="booking-crop-top">

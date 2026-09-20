@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Component } from 'react'
 import CreateAccountPage from './pages/CreateAccountPage'
 import HomePage from './pages/HomePage'
 import LoginPage from './pages/LoginPage'
@@ -17,7 +17,56 @@ import AdminProcurementsPage from './pages/AdminProcurementsPage'
 import AdminPaymentsPage from './pages/AdminPaymentsPage'
 import AdminAddCenterPage from './pages/AdminAddCenterPage'
 import AdminCenterDetailsPage from './pages/AdminCenterDetailsPage'
+import StaffDashboardPage from './pages/StaffDashboardPage'
+import StaffQueuePage from './pages/StaffQueuePage'
+import StaffProcurementPage from './pages/StaffProcurementPage'
+import StaffPaymentsPage from './pages/StaffPaymentsPage'
+import StaffProfilePage from './pages/StaffProfilePage'
+import { NotificationProvider } from './context/NotificationContext'
 import './App.css'
+
+class AppErrorBoundary extends Component {
+  constructor(props) {
+    super(props)
+    this.state = { hasError: false, error: null, info: null }
+  }
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error }
+  }
+  componentDidCatch(error, info) {
+    console.error('=== APP CRASH ===', error, info.componentStack)
+    this.setState({ info })
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{
+          padding: '32px', background: '#fff1f2', color: '#9f1239',
+          fontFamily: 'monospace', minHeight: '100vh'
+        }}>
+          <h2 style={{ marginBottom: '16px' }}>⚠️ Something crashed</h2>
+          <p style={{ marginBottom: '8px', fontWeight: 'bold' }}>{this.state.error?.toString()}</p>
+          <pre style={{
+            background: '#fff', padding: '16px', borderRadius: '8px',
+            overflow: 'auto', fontSize: '12px', border: '1px solid #fecdd3'
+          }}>
+            {this.state.info?.componentStack}
+          </pre>
+          <button
+            onClick={() => this.setState({ hasError: false, error: null, info: null })}
+            style={{
+              marginTop: '16px', padding: '10px 20px', background: '#be123c',
+              color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer'
+            }}
+          >
+            Try Again
+          </button>
+        </div>
+      )
+    }
+    return this.props.children
+  }
+}
 
 const PAGE_BY_PATH = {
   '/': HomePage,
@@ -39,7 +88,14 @@ const PAGE_BY_PATH = {
   '/admin/payments': AdminPaymentsPage,
   '/admin/centers/new': AdminAddCenterPage,
   '/admin/centers/details': AdminCenterDetailsPage,
+  '/staff': StaffDashboardPage,
+  '/staff/dashboard': StaffDashboardPage,
+  '/staff/queue': StaffQueuePage,
+  '/staff/procurement': StaffProcurementPage,
+  '/staff/payments': StaffPaymentsPage,
+  '/staff/profile': StaffProfilePage,
 }
+
 
 function useCurrentPath() {
   const [path, setPath] = useState(window.location.pathname)
@@ -60,5 +116,11 @@ export default function App() {
   const cleanPath = path.split('?')[0]
   
   const Page = PAGE_BY_PATH[cleanPath] ?? HomePage
-  return <Page />
+  return (
+    <AppErrorBoundary>
+      <NotificationProvider>
+        <Page />
+      </NotificationProvider>
+    </AppErrorBoundary>
+  )
 }

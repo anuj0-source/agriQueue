@@ -274,6 +274,30 @@ async def create_admin_slot(data: Dict[str, Any], db: AsyncSession = Depends(get
     await db.refresh(new_slot)
     return {"success": True, "slot_id": new_slot.id}
 
+@router.put("/slots/{slot_id}")
+async def update_admin_slot(slot_id: int, data: Dict[str, Any], db: AsyncSession = Depends(get_db)):
+    from models.slot import Slot
+    slot = await db.get(Slot, slot_id)
+    if not slot:
+        return {"success": False, "message": "Slot not found"}
+    if "start_time" in data: slot.start_time = data["start_time"]
+    if "end_time" in data: slot.end_time = data["end_time"]
+    if "capacity" in data: slot.capacity = int(data["capacity"])
+    if "status" in data: slot.status = data["status"]
+    await db.commit()
+    return {"success": True, "message": "Slot updated"}
+
+@router.delete("/slots/{slot_id}")
+async def delete_admin_slot(slot_id: int, db: AsyncSession = Depends(get_db)):
+    from models.slot import Slot
+    from sqlalchemy import delete
+    slot = await db.get(Slot, slot_id)
+    if not slot:
+        return {"success": False, "message": "Slot not found"}
+    await db.execute(delete(Slot).where(Slot.id == slot_id))
+    await db.commit()
+    return {"success": True, "message": "Slot deleted"}
+
 
 @router.get("/users")
 async def get_admin_users(db: AsyncSession = Depends(get_db)):
@@ -307,12 +331,29 @@ async def get_admin_slots(
         query = query.where(Slot.center_id == center_id)
 
     rows = (await db.execute(query)).all()
+    
+    # Fetch the latest booking date for each slot
+    booking_dates = (await db.execute(
+        select(Booking.slot_id, func.max(Booking.booked_at))
+        .group_by(Booking.slot_id)
+    )).all()
+    date_map = {row[0]: row[1] for row in booking_dates}
+
     result = []
     for s, c in rows:
+        b_date = date_map.get(s.id)
+        if b_date:
+            display_date = b_date.strftime("%b %d, %Y")
+        elif s.created_at:
+            display_date = s.created_at.strftime("%b %d, %Y")
+        else:
+            display_date = "-"
+
         result.append({
             "id": s.id,
             "center_id": c.id,
             "center_name": c.name,
+            "date": display_date,
             "time": f"{s.start_time} - {s.end_time}",
             "capacity": s.capacity,
             "booked_count": s.booked_count,
@@ -427,3 +468,140 @@ async def delete_procurement_center(center_id: int, db: AsyncSession = Depends(g
     
     await db.commit()
     return {"success": True, "message": "Center deleted successfully"}
+
+@router.put("/centers/{center_id}")
+async def update_admin_center(center_id: int, data: Dict[str, Any], db: AsyncSession = Depends(get_db), access_token: str = Cookie(default=None)):
+    if not access_token:
+        return {"success": False, "message": "You are not logged in."}
+    try:
+        payload = jwt.decode(access_token, SECRET, algorithms=[ALGORITHM])
+        if payload.get("role") != "admin":
+            return {"success": False, "message": "Unauthorized"}
+    except:
+        return {"success": False, "message": "Invalid token"}
+
+    center = await db.get(ProcurementCenter, center_id)
+    if not center:
+        return {"success": False, "message": "Center not found"}
+
+    # Update fields
+    if "daily_capacity" in data:
+        center.daily_capacity = int(data["daily_capacity"])
+    if "status" in data:
+        center.status = data["status"]
+    if "opening_time" in data:
+        center.opening_time = data["opening_time"]
+    if "closing_time" in data:
+        center.closing_time = data["closing_time"]
+    
+    await db.commit()
+    return {"success": True, "message": "Center updated successfully"}
+
+
+# ── GET /admin/centers/{center_id}/staff ──────────────────────────────────────
+@router.get("/centers/{center_id}/staff")
+async def get_center_staff(
+    center_id: int,
+    db: AsyncSession = Depends(get_db),
+    access_token: str = Cookie(default=None)
+):
+    payload = isAuthenticated(access_token)
+    if not payload or payload.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+
+    from models.staff import Staff
+    staff_list = (await db.scalars(
+        select(Staff).where(Staff.center_id == center_id).order_by(Staff.id)
+    )).all()
+
+    return [
+        {
+            "id": s.id,
+            "full_name": s.full_name,
+            "mobile_number": s.mobile_number,
+            "staff_id": s.staff_id or f"ST-{s.id:04d}",
+            "created_at": s.created_at.strftime("%d %b %Y") if s.created_at else "N/A",
+        }
+        for s in staff_list
+    ]
+
+
+# ── POST /admin/centers/{center_id}/staff ─────────────────────────────────────
+@router.post("/centers/{center_id}/staff")
+async def create_center_staff(
+    center_id: int,
+    data: Dict[str, Any],
+    db: AsyncSession = Depends(get_db),
+    access_token: str = Cookie(default=None)
+):
+    payload = isAuthenticated(access_token)
+    if not payload or payload.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+
+    center = await db.get(ProcurementCenter, center_id)
+    if not center:
+        raise HTTPException(status_code=404, detail="Center not found")
+
+    mobile = data.get("mobile_number", "").strip()
+    password = data.get("password", "").strip()
+    full_name = data.get("full_name", "").strip()
+
+    if not mobile or not password or not full_name:
+        raise HTTPException(status_code=400, detail="full_name, mobile_number and password are required")
+
+    from models.staff import Staff
+    existing = await db.scalar(select(Staff).where(Staff.mobile_number == mobile))
+    if existing:
+        raise HTTPException(status_code=400, detail="Mobile number already registered as staff")
+
+    from pwdlib import PasswordHash
+    ph = PasswordHash.recommended()
+    hashed = ph.hash(password)
+
+    # Generate a staff_id like SC{center_id}-{serial}
+    count = await db.scalar(select(func.count(Staff.id)).where(Staff.center_id == center_id)) or 0
+    staff_id = f"SC{center_id}-{count + 1:03d}"
+
+    new_staff = Staff(
+        full_name=full_name,
+        mobile_number=mobile,
+        center_id=center_id,
+        staff_id=staff_id,
+        hashed_password=hashed,
+        created_at=datetime.now(),
+    )
+    db.add(new_staff)
+    await db.commit()
+    await db.refresh(new_staff)
+
+    return {
+        "success": True,
+        "staff": {
+            "id": new_staff.id,
+            "full_name": new_staff.full_name,
+            "mobile_number": new_staff.mobile_number,
+            "staff_id": new_staff.staff_id,
+            "created_at": new_staff.created_at.strftime("%d %b %Y"),
+        }
+    }
+
+
+# ── DELETE /admin/staff/{staff_id} ────────────────────────────────────────────
+@router.delete("/staff/{staff_id}")
+async def delete_staff(
+    staff_id: int,
+    db: AsyncSession = Depends(get_db),
+    access_token: str = Cookie(default=None)
+):
+    payload = isAuthenticated(access_token)
+    if not payload or payload.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+
+    from models.staff import Staff
+    staff = await db.get(Staff, staff_id)
+    if not staff:
+        raise HTTPException(status_code=404, detail="Staff not found")
+
+    await db.delete(staff)
+    await db.commit()
+    return {"success": True, "message": "Staff removed successfully"}

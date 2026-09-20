@@ -47,6 +47,7 @@ export default function BookSlotPage() {
             image: c.image || PROCUREMENT_CENTERS[idx % PROCUREMENT_CENTERS.length]?.image,
             location: `${c.village}, ${c.district} • ${c.state}`,
             crops: c.crops && c.crops.length > 0 ? c.crops.map(crop => crop.name).join(', ') : 'No produces listed',
+            cropsList: c.crops || [],
             availableSlots: Math.max(0, (c.available_slots || c.daily_capacity || 0) / 100),
           }))
           setCenters(enriched)
@@ -66,7 +67,8 @@ export default function BookSlotPage() {
       if (!selectedCenter) return
       setLoadingSlots(true)
       try {
-        const slots = await getCenterSlots(selectedCenter.id)
+        const dateStr = new Date(currentYear, currentMonth, selectedDate, 12, 0, 0).toISOString()
+        const slots = await getCenterSlots(selectedCenter.id, dateStr)
         setSlotsList(slots)
         if (slots.length > 0) {
           const firstAvailable = slots.find(s => s.status !== 'full')
@@ -187,12 +189,15 @@ export default function BookSlotPage() {
                       <p className="center-crops">{center.crops}</p>
                     </div>
                     <div className="center-action-col">
-                      <span className="slots-badge">{center.availableSlots} quintals available</span>
+                      <span className="slots-badge">{center.availableSlots} quintals available today</span>
                       <button
                         type="button"
                         className="select-center-btn"
                         onClick={() => {
                           setSelectedCenter(center)
+                          if (center.cropsList && center.cropsList.length > 0) {
+                            setSelectedProduce(center.cropsList[0].name)
+                          }
                           setStep(2)
                         }}
                       >
@@ -292,7 +297,7 @@ export default function BookSlotPage() {
                       
                       let isPastSlot = false
                       if (selectedDate === todayDate) {
-                        const timeParts = slot.time.split('-')[0].trim().match(/(\d+):(\d+)\s*(AM|PM)?/i)
+                        const timeParts = slot.time.split('-')[1].trim().match(/(\d+):(\d+)\s*(AM|PM)?/i)
                         if (timeParts) {
                           let hours = parseInt(timeParts[1], 10)
                           const isPM = timeParts[3] && timeParts[3].toUpperCase() === 'PM'
@@ -397,9 +402,13 @@ export default function BookSlotPage() {
                     value={selectedProduce}
                     onChange={(e) => setSelectedProduce(e.target.value)}
                   >
-                    <option value="Wheat">Wheat</option>
-                    <option value="Rice">Rice</option>
-                    <option value="Maize">Maize</option>
+                    {selectedCenter?.cropsList?.length > 0 ? (
+                      selectedCenter.cropsList.map((crop) => (
+                        <option key={crop.id} value={crop.name}>{crop.name}</option>
+                      ))
+                    ) : (
+                      <option value="Wheat">Wheat</option>
+                    )}
                   </select>
                 </div>
               </div>
@@ -425,7 +434,12 @@ export default function BookSlotPage() {
                     <span className="quantity-unit-tag">kg</span>
                   </div>
                   <span className="confirm-val-sub" style={{ marginTop: '4px' }}>
-                    Est. value: ₹{((Number(quantityKg) || 0) * (selectedProduce === 'Wheat' ? 23 : selectedProduce === 'Rice' ? 22 : 21)).toLocaleString()} (at ₹{selectedProduce === 'Wheat' ? 23 : selectedProduce === 'Rice' ? 22 : 21}/kg MSP)
+                    {(() => {
+                      const selectedCropObj = selectedCenter?.cropsList?.find(c => c.name === selectedProduce) || { price_per_kg: 20 }
+                      const price = selectedCropObj.price_per_kg
+                      const total = (Number(quantityKg) || 0) * price
+                      return `Est. value: ₹${total.toLocaleString()} (at ₹${price}/kg MSP)`
+                    })()}
                   </span>
                 </div>
               </div>

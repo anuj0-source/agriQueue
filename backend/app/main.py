@@ -7,6 +7,8 @@ from routes.centers import router as centers_router
 from routes.bookings import router as bookings_router
 from routes.queue import router as queue_router
 from routes.admin import router as admin_router
+from routes.staff import router as staff_router
+from routes.notifications import router as notifications_router
 from database import Base, engine, AsyncSessionLocal
 import models.farmer
 import models.procurement_center
@@ -14,6 +16,8 @@ import models.booking
 import models.slot
 import models.produce
 import models.admin
+import models.staff
+import models.push_subscription
 
 
 @asynccontextmanager
@@ -45,6 +49,8 @@ app.include_router(centers_router)
 app.include_router(bookings_router)
 app.include_router(queue_router)
 app.include_router(admin_router)
+app.include_router(staff_router)
+app.include_router(notifications_router)
 
 @app.get("/")
 async def read_root():

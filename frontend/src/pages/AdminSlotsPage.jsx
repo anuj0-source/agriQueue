@@ -67,6 +67,7 @@ export default function AdminSlotsPage() {
               <thead>
                 <tr>
                   <th>Center</th>
+                  <th>Date</th>
                   <th>Time Window</th>
                   <th>Capacity</th>
                   <th>Booked</th>
@@ -80,6 +81,7 @@ export default function AdminSlotsPage() {
                   [1, 2, 3, 4, 5].map((i) => (
                     <tr key={i} className="skeleton-table-row">
                       <td><div className="skeleton-text skeleton medium"></div></td>
+                      <td><div className="skeleton-text skeleton medium"></div></td>
                       <td><div className="skeleton-badge skeleton"></div></td>
                       <td><div className="skeleton-text skeleton short"></div></td>
                       <td><div className="skeleton-text skeleton short"></div></td>
@@ -90,7 +92,7 @@ export default function AdminSlotsPage() {
                   ))
                 ) : filteredSlots.length === 0 ? (
                   <tr>
-                    <td colSpan="7" style={{ padding: 0, border: 'none' }}>
+                    <td colSpan="8" style={{ padding: 0, border: 'none' }}>
                       <div className="empty-state-wrapper" style={{ margin: '24px' }}>
                         <div className="empty-state-icon">
                           <Clock size={32} />
@@ -111,6 +113,9 @@ export default function AdminSlotsPage() {
                       <tr key={slot.id}>
                         <td>
                           <strong className="center-cell-name">{slot.center_name}</strong>
+                        </td>
+                        <td>
+                          <span style={{ color: '#4b5563', fontSize: '14px' }}>{slot.date}</span>
                         </td>
                         <td>
                           <div className="time-badge">

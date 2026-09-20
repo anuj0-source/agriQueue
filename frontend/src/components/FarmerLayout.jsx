@@ -12,6 +12,8 @@ import {
   X,
 } from 'lucide-react'
 import Brand from './Brand'
+import NotificationPanel from './NotificationPanel'
+import { useNotifications } from '../context/NotificationContext'
 import { FARMER_PROFILE } from '../data/farmer-data'
 
 const NAV_ITEMS = [
@@ -26,6 +28,7 @@ const NAV_ITEMS = [
 
 export default function FarmerLayout({ activePath, user, children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const { unreadCount, openPanel } = useNotifications()
 
   let initials = FARMER_PROFILE.initials
   const currentUser = user || (() => {
@@ -106,7 +109,7 @@ export default function FarmerLayout({ activePath, user, children }) {
         <header className="portal-top-bar">
           <button
             type="button"
-            className="portal-mobile-toggle"
+            className="portal-mobile-menu-btn"
             onClick={() => setSidebarOpen(true)}
             aria-label="Open menu"
           >
@@ -114,9 +117,18 @@ export default function FarmerLayout({ activePath, user, children }) {
           </button>
 
           <div className="portal-top-right">
-            <button type="button" className="portal-icon-button" aria-label="Notifications">
+            <button
+              type="button"
+              className="portal-icon-button"
+              aria-label={`Notifications${unreadCount > 0 ? ` (${unreadCount} unread)` : ''}`}
+              onClick={openPanel}
+            >
               <Bell size={19} />
-              <span className="portal-notification-dot" />
+              {unreadCount > 0 && (
+                <span className="portal-notification-badge" aria-hidden="true">
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </span>
+              )}
             </button>
 
             <a href="/profile" className="portal-avatar-pill" aria-label="View profile">
@@ -128,6 +140,9 @@ export default function FarmerLayout({ activePath, user, children }) {
         {/* Page View Content */}
         <main className="portal-content-body">{children}</main>
       </div>
+
+      {/* Notification Panel */}
+      <NotificationPanel />
     </div>
   )
 }
