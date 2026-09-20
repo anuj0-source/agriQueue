@@ -1,9 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException, Cookie
-from sqlalchemy import select
+from fastapi.responses import StreamingResponse
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional
-from datetime import datetime, timezone
-from database import get_db
+from datetime import datetime, date
+import asyncio
+import json
+from database import get_db, AsyncSessionLocal
 from isAuthenticated import isAuthenticated
 from models.procurement_center import ProcurementCenter
 from models.booking import Booking
@@ -13,87 +16,163 @@ router = APIRouter(
     tags=["queue"]
 )
 
+
+async def _build_farmer_queue(center_id: int, user_id: Optional[int], db: AsyncSession) -> dict:
+    """
+    Build the complete queue snapshot for a center.
+    Only today's bookings are shown. Farmer-specific token is identified by user_id.
+    """
+    center = await db.scalar(select(ProcurementCenter).where(ProcurementCenter.id == center_id))
+    if not center:
+        center = await db.scalar(select(ProcurementCenter).limit(1))
+        if not center:
+            return None
+
+    today = date.today()
+    bookings = (await db.scalars(
+        select(Booking)
+        .where(
+            Booking.procurement_center_id == center.id,
+            func.date(Booking.booked_at) == today
+        )
+        .order_by(Booking.token_number.asc())
+    )).all()
+
+    prefix = center.name.split()[-1][0].upper() if center.name else "A"
+    now_time_str = datetime.now().strftime("%I:%M %p")
+
+    empty_base = {
+        "center": center.name, "center_id": center.id,
+        "lastUpdated": now_time_str, "nowServing": "-",
+        "yourToken": "No Active Token", "yourTokenNumber": None,
+        "yourStatus": None, "farmersAhead": 0,
+        "estimatedWait": "-", "queue": [],
+    }
+
+    if not bookings:
+        return empty_base
+
+    # The farmer's own active booking for today
+    user_booking = None
+    if user_id:
+        user_booking = next(
+            (b for b in bookings if b.farmer_id == user_id
+             and b.status in ["Confirmed", "Waiting", "Serving"]),
+            None
+        )
+
+    # "Now Serving" = the booking currently in "Serving" status.
+    # If no Serving status yet, "-" (staff hasn't called anyone yet).
+    serving_booking = next((b for b in bookings if b.status == "Serving"), None)
+
+    serving_token_str = (
+        f"{prefix}-{serving_booking.token_number:03d}" if serving_booking else "-"
+    )
+    your_token_str = (
+        f"{prefix}-{user_booking.token_number:03d}" if user_booking else "No Active Token"
+    )
+
+    # Farmers ahead = active bookings with a lower token number (not cancelled/completed)
+    ahead_count = 0
+    if user_booking:
+        ahead_count = sum(
+            1 for b in bookings
+            if b.token_number < user_booking.token_number
+            and b.status in ["Confirmed", "Waiting", "Serving"]
+        )
+
+    # Show last 10 bookings in the queue table (so farmer can see their position)
+    relevant = [b for b in bookings if b.status != "Cancelled"][-10:]
+    queue_list = []
+    for b in relevant:
+        tok_str = f"{prefix}-{b.token_number:03d}"
+        is_curr = user_booking and (b.id == user_booking.id)
+        is_serving_item = serving_booking and (b.id == serving_booking.id) and not is_curr
+        display_status = "You" if is_curr else ("Serving" if is_serving_item else b.status)
+        queue_list.append({
+            "token": tok_str,
+            "status": display_status,
+            "isCurrent": bool(is_curr),
+        })
+
+    wait_str = "-"
+    if user_booking:
+        if user_booking.status == "Serving":
+            wait_str = "Your turn now!"
+        elif ahead_count == 0:
+            wait_str = "~5 min (you're next)"
+        else:
+            wait_str = f"~{ahead_count * 10} min"
+
+    return {
+        "center": center.name,
+        "center_id": center.id,
+        "lastUpdated": now_time_str,
+        "nowServing": serving_token_str,
+        "yourToken": your_token_str,
+        "yourTokenNumber": user_booking.token_number if user_booking else None,
+        "yourStatus": user_booking.status if user_booking else None,
+        "farmersAhead": ahead_count,
+        "estimatedWait": wait_str,
+        "queue": queue_list,
+    }
+
+
+# ── GET /queue/{center_id}  (regular HTTP) ─────────────────────────────────────
 @router.get("/{center_id}")
 async def get_live_queue(
     center_id: int,
     db: AsyncSession = Depends(get_db),
     access_token: Optional[str] = Cookie(default=None)
 ):
-    center = await db.scalar(select(ProcurementCenter).where(ProcurementCenter.id == center_id))
-    if not center:
-        # Fallback to first center if not found
-        center = await db.scalar(select(ProcurementCenter).limit(1))
-        if not center:
-            raise HTTPException(status_code=404, detail="Center not found")
-
     user_id = None
     if access_token:
         payload = isAuthenticated(access_token)
         if payload:
             user_id = payload.get("user_id")
 
-    # Get bookings for this center
-    bookings = (await db.scalars(
-        select(Booking)
-        .where(Booking.procurement_center_id == center.id)
-        .order_by(Booking.token_number.asc())
-    )).all()
+    data = await _build_farmer_queue(center_id, user_id, db)
+    if not data:
+        raise HTTPException(status_code=404, detail="Center not found")
+    return data
 
-    prefix = center.name.split()[-1][0].upper() if center.name else "A"
 
-    now_time_str = datetime.now().strftime("%I:%M %p")
+# ── GET /queue/{center_id}/stream  (SSE) ───────────────────────────────────────
+@router.get("/{center_id}/stream")
+async def stream_live_queue(
+    center_id: int,
+    access_token: Optional[str] = Cookie(default=None)
+):
+    # Resolve user_id once at connection time
+    user_id = None
+    if access_token:
+        payload = isAuthenticated(access_token)
+        if payload:
+            user_id = payload.get("user_id")
 
-    # If no bookings in DB yet, generate a realistic active queue for this center
-    if not bookings:
-        serving_num = 36
-        queue_items = [
-            {"token": f"{prefix}-037", "status": "Completed", "isCurrent": False},
-            {"token": f"{prefix}-038", "status": "Completed", "isCurrent": False},
-            {"token": f"{prefix}-039", "status": "Completed", "isCurrent": False},
-            {"token": f"{prefix}-040", "status": "Waiting", "isCurrent": False},
-            {"token": f"{prefix}-041", "status": "Waiting", "isCurrent": False},
-            {"token": f"{prefix}-042", "status": "Waiting", "isCurrent": True},
-        ]
-        return {
-            "center": center.name,
-            "lastUpdated": now_time_str,
-            "nowServing": f"{prefix}-{serving_num:03d}",
-            "yourToken": f"{prefix}-042",
-            "farmersAhead": 3,
-            "estimatedWait": "15 minutes",
-            "queue": queue_items,
+    async def event_generator():
+        try:
+            while True:
+                # Use a FRESH session each tick so reads are never stale
+                try:
+                    async with AsyncSessionLocal() as db:
+                        data = await _build_farmer_queue(center_id, user_id, db)
+                    if data:
+                        yield f"data: {json.dumps(data)}\n\n"
+                    else:
+                        yield ": keep-alive\n\n"
+                except Exception:
+                    yield ": keep-alive\n\n"
+                await asyncio.sleep(5)
+        except (asyncio.CancelledError, GeneratorExit):
+            pass
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+            "Connection": "keep-alive",
         }
-
-    # Build queue from actual bookings
-    user_booking = next((b for b in bookings if b.farmer_id == user_id and b.status in ["Confirmed", "Waiting"]), None)
-
-    min_token = min(b.token_number for b in bookings)
-    serving_token_num = max(1, min_token - 2)
-    serving_token_str = f"{prefix}-{serving_token_num:03d}"
-
-    your_token_str = f"{prefix}-{user_booking.token_number:03d}" if user_booking else "No Active Token"
-
-    # Count ahead
-    ahead_count = 0
-    if user_booking:
-        ahead_count = sum(1 for b in bookings if b.token_number < user_booking.token_number and b.status in ["Confirmed", "Waiting"])
-
-    queue_list = []
-    for b in bookings[-8:]:
-        tok_str = f"{prefix}-{b.token_number:03d}"
-        is_curr = user_booking and (b.id == user_booking.id)
-        queue_list.append({
-            "token": tok_str,
-            "status": "You" if is_curr else b.status,
-            "isCurrent": bool(is_curr)
-        })
-
-    return {
-        "center": center.name,
-        "lastUpdated": now_time_str,
-        "nowServing": serving_token_str,
-        "yourToken": your_token_str,
-        "farmersAhead": ahead_count,
-        "estimatedWait": f"{max(5, (ahead_count + 1) * 10)} minutes" if user_booking else "-",
-        "queue": queue_list
-    }
+    )

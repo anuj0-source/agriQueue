@@ -16,8 +16,11 @@ export default function LoginPage() {
     async function verifySession() {
       const session = await checkAuthSession()
       if (session && session.authenticated) {
-        if (session.role === 'admin' || session.user?.role === 'admin') {
+        const r = session.role || session.user?.role
+        if (r === 'admin') {
           window.location.href = '/admin'
+        } else if (r === 'staff') {
+          window.location.href = '/staff'
         } else {
           window.location.href = '/dashboard'
         }
@@ -36,11 +39,13 @@ export default function LoginPage() {
       if (data.user) {
         localStorage.setItem('currentUser', JSON.stringify({
           ...data.user,
-          role: role,
+          role: role.toLowerCase(),
         }))
       }
       if (role === 'Admin') {
         window.location.href = '/admin'
+      } else if (role === 'Staff') {
+        window.location.href = '/staff'
       } else {
         window.location.href = '/dashboard'
       }

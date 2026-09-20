@@ -163,6 +163,21 @@ export async function getMyBookings() {
   return data
 }
 
+export async function cancelBooking(bookingId) {
+  const response = await fetch(`${API_BASE_URL}/bookings/${bookingId}/cancel`, {
+    method: 'PATCH',
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  })
+  const data = await response.json()
+  if (!response.ok) {
+    throw new Error(data.detail || data.message || 'Failed to cancel booking')
+  }
+  return data
+}
+
 export async function getLiveQueue(centerId = 1001) {
   const response = await fetch(`${API_BASE_URL}/queue/${centerId}`, {
     method: 'GET',
@@ -177,6 +192,104 @@ export async function getLiveQueue(centerId = 1001) {
   }
   return data
 }
+
+/**
+ * Returns the SSE stream URL for a given center (farmer use)
+ */
+export function getQueueStreamUrl(centerId) {
+  return `${API_BASE_URL}/queue/${centerId}/stream`
+}
+
+/**
+ * Returns the SSE stream URL for staff queue
+ */
+export function getStaffQueueStreamUrl() {
+  return `${API_BASE_URL}/staff/queue/stream`
+}
+
+/**
+ * Fetches the farmer's active booking center ID from their bookings.
+ * Falls back to centerId 1 if none found.
+ */
+export async function getActiveFarmerCenterId() {
+  try {
+    const response = await fetch(`${API_BASE_URL}/bookings/my`, {
+      method: 'GET',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+    })
+    if (response.ok) {
+      const bookings = await response.json()
+      if (Array.isArray(bookings) && bookings.length > 0) {
+        // Find most recent active booking's center
+        const active = bookings.find(b => b.status && !['Cancelled', 'Completed'].includes(b.status))
+        const fallback = bookings[0]
+        const booking = active || fallback
+        if (booking?.procurement_center_id) {
+          localStorage.setItem('lastBookingCenterId', String(booking.procurement_center_id))
+          return booking.procurement_center_id
+        }
+      }
+    }
+  } catch {}
+  return parseInt(localStorage.getItem('lastBookingCenterId') || '1')
+}
+
+/**
+ * Returns all unique centers the farmer has active (non-cancelled, non-completed) bookings at.
+ */
+export async function getActiveFarmerCenters() {
+  try {
+    const response = await fetch(`${API_BASE_URL}/bookings/my`, {
+      method: 'GET',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+    })
+    if (response.ok) {
+      const bookings = await response.json()
+      if (Array.isArray(bookings) && bookings.length > 0) {
+        const centerMap = new Map()
+        for (const b of bookings) {
+          const cid = b.procurement_center_id
+          const isActiveBooking = b.status && !['Cancelled', 'Completed'].includes(b.status)
+          if (!centerMap.has(cid)) {
+            centerMap.set(cid, {
+              id: cid,
+              name: b.center_name || `Center #${cid}`,
+              address: b.center_address || '',
+              district: b.center_district || '',
+              isActive: Boolean(isActiveBooking),
+              activeToken: isActiveBooking ? (b.formatted_token || (b.token_number ? `#${b.token_number}` : null)) : null,
+              activeStatus: isActiveBooking ? b.status : null,
+              bookings: [b],
+              activeBookings: isActiveBooking ? [b] : [],
+              bookingCount: 1,
+              hasBookings: true,
+            })
+          } else {
+            const entry = centerMap.get(cid)
+            entry.bookings.push(b)
+            entry.bookingCount += 1
+            if (isActiveBooking) {
+              entry.isActive = true
+              entry.activeBookings.push(b)
+              if (!entry.activeToken || b.status === 'Serving') {
+                entry.activeToken = b.formatted_token || (b.token_number ? `#${b.token_number}` : null)
+                entry.activeStatus = b.status
+              }
+            }
+          }
+        }
+        return Array.from(centerMap.values())
+      }
+    }
+  } catch (err) {
+    console.error('Failed to get farmer centers:', err)
+  }
+  return []
+}
+
+
 
 export async function getProcurementHistory() {
   const response = await fetch(`${API_BASE_URL}/dashboard/procurement-history`, {
@@ -284,7 +397,20 @@ export async function deleteAdminCenter(centerId) {
     credentials: 'include',
   })
   if (!res.ok) throw new Error('Failed to delete center')
-  return await res.json()
+  return res.json()
+}
+
+export async function updateAdminCenter(centerId, payload) {
+  const res = await fetch(`${API_BASE_URL}/admin/centers/${centerId}`, {
+    method: 'PUT',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  })
+  if (!res.ok) throw new Error('Failed to update center')
+  const data = await res.json()
+  if (!data.success) throw new Error(data.message)
+  return data
 }
 
 export async function createAdminSlot(payload) {
@@ -296,6 +422,30 @@ export async function createAdminSlot(payload) {
   })
   if (!res.ok) throw new Error('Failed to create slot')
   return await res.json()
+}
+
+export async function updateAdminSlot(slotId, payload) {
+  const res = await fetch(`${API_BASE_URL}/admin/slots/${slotId}`, {
+    method: 'PUT',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+  if (!res.ok) throw new Error('Failed to update slot')
+  const data = await res.json()
+  if (!data.success) throw new Error(data.message)
+  return data
+}
+
+export async function deleteAdminSlot(slotId) {
+  const res = await fetch(`${API_BASE_URL}/admin/slots/${slotId}`, {
+    method: 'DELETE',
+    credentials: 'include',
+  })
+  if (!res.ok) throw new Error('Failed to delete slot')
+  const data = await res.json()
+  if (!data.success) throw new Error(data.message)
+  return data
 }
 
 export async function getAdminUsers() {
@@ -405,3 +555,152 @@ export async function triggerAdminSeed() {
   return await res.json()
 }
 
+export async function getCenterStaff(centerId) {
+  const res = await fetch(`${API_BASE_URL}/admin/centers/${centerId}/staff`, {
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+  })
+  if (!res.ok) throw new Error('Failed to fetch staff list')
+  return await res.json()
+}
+
+export async function createCenterStaff(centerId, data) {
+  const res = await fetch(`${API_BASE_URL}/admin/centers/${centerId}/staff`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  })
+  const json = await res.json()
+  if (!res.ok) throw new Error(json.detail || 'Failed to create staff')
+  return json
+}
+
+export async function deleteStaffMember(staffId) {
+  const res = await fetch(`${API_BASE_URL}/admin/staff/${staffId}`, {
+    method: 'DELETE',
+    credentials: 'include',
+  })
+  if (!res.ok) throw new Error('Failed to delete staff')
+  return await res.json()
+}
+
+/* ──────────────── Staff API ──────────────── */
+
+export async function getStaffMe() {
+  const res = await fetch(`${API_BASE_URL}/staff/me`, {
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+  })
+  if (!res.ok) throw new Error('Failed to fetch staff profile')
+  return await res.json()
+}
+
+export async function getStaffDashboard() {
+  const res = await fetch(`${API_BASE_URL}/staff/dashboard`, {
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+  })
+  if (!res.ok) throw new Error('Failed to fetch staff dashboard')
+  return await res.json()
+}
+
+export async function getStaffQueue() {
+  const res = await fetch(`${API_BASE_URL}/staff/queue`, {
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+  })
+  if (!res.ok) throw new Error('Failed to fetch queue')
+  return await res.json()
+}
+
+export async function getStaffProcurement() {
+  const res = await fetch(`${API_BASE_URL}/staff/procurement`, {
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+  })
+  if (!res.ok) throw new Error('Failed to fetch procurement list')
+  return await res.json()
+}
+
+export async function updateStaffProcurement(bookingId, data) {
+  const res = await fetch(`${API_BASE_URL}/staff/procurement/${bookingId}`, {
+    method: 'PUT',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  })
+  if (!res.ok) throw new Error('Failed to update procurement')
+  return await res.json()
+}
+
+export async function getStaffPayments() {
+  const res = await fetch(`${API_BASE_URL}/staff/payments`, {
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+  })
+  if (!res.ok) throw new Error('Failed to fetch payments')
+  return await res.json()
+}
+
+export async function getStaffProfile() {
+  const res = await fetch(`${API_BASE_URL}/staff/profile`, {
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+  })
+  if (!res.ok) throw new Error('Failed to fetch staff profile')
+  return await res.json()
+}
+
+/**
+ * Staff: call the next farmer in the queue.
+ * Returns { success, now_serving, completed_token, message }
+ */
+export async function callNextFarmer() {
+  const res = await fetch(`${API_BASE_URL}/staff/queue/call-next`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+  })
+  const data = await res.json()
+  if (!res.ok) {
+    const err = new Error(data.detail || data.message || 'Failed to call next farmer')
+    err.status = res.status
+    throw err
+  }
+  return data
+}
+
+/**
+ * Staff: skip / cancel a booking token.
+ * @param {number} bookingId
+ */
+export async function skipToken(bookingId) {
+  const res = await fetch(`${API_BASE_URL}/staff/queue/skip/${bookingId}`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+  })
+  const data = await res.json()
+  if (!res.ok) {
+    const err = new Error(data.detail || data.message || 'Failed to skip token')
+    err.status = res.status
+    throw err
+  }
+  return data
+}
+
+// --- Push Notifications ---
+export async function subscribePushNotification(subscription) {
+  const res = await fetch(`${API_BASE_URL}/notifications/subscribe`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(subscription),
+  })
+  const data = await res.json()
+  if (!res.ok) {
+    throw new Error(data.detail || 'Failed to subscribe to push notifications')
+  }
+  return data
+}

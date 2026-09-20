@@ -12,6 +12,7 @@ from datetime import datetime, timedelta, timezone
 from dotenv import load_dotenv
 import os
 from models.admin import Admin
+from models.staff import Staff
 
 router = APIRouter(
     prefix="/auth",
@@ -53,6 +54,10 @@ async def login(
     if role_lower == "admin":
         user = await db.scalar(
             select(Admin).where(Admin.mobile_number == data.mobile_number)
+        )
+    elif role_lower == "staff":
+        user = await db.scalar(
+            select(Staff).where(Staff.mobile_number == data.mobile_number)
         )
     else:
         user = await db.scalar(
@@ -153,6 +158,8 @@ async def get_me(
     role = payload.get("role", "farmer")
     if role == "admin":
         user = await db.scalar(select(Admin).where(Admin.id == user_id))
+    elif role == "staff":
+        user = await db.scalar(select(Staff).where(Staff.id == user_id))
     else:
         user = await db.scalar(select(Farmer).where(Farmer.id == user_id))
 
@@ -168,6 +175,8 @@ async def get_me(
             "full_name": user.full_name,
             "mobile_number": user.mobile_number,
             "farmer_id": getattr(user, "farmer_id", None),
+            "staff_id": getattr(user, "staff_id", None),
+            "center_id": getattr(user, "center_id", None),
             "state": getattr(user, "state", None),
             "district": getattr(user, "district", None),
             "village": getattr(user, "village", None),

@@ -10,6 +10,8 @@ import {
   Bell,
   ChevronDown,
   LogOut,
+  Menu,
+  X
 } from 'lucide-react'
 import Brand from './Brand'
 import { logoutFarmer } from '../api'
@@ -33,6 +35,7 @@ export default function AdminLayout({
 }) {
   const [showUserMenu, setShowUserMenu] = useState(false)
   const [showNotifications, setShowNotifications] = useState(false)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
 
   // Read real admin data from session
   const currentUser = (() => {
@@ -67,10 +70,27 @@ export default function AdminLayout({
 
   return (
     <div className="admin-portal-wrapper">
+      {/* Mobile overlay */}
+      {sidebarOpen && (
+        <div
+          className="portal-mobile-backdrop"
+          onClick={() => setSidebarOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
       {/* ─── Sidebar ─── */}
-      <aside className="admin-sidebar" aria-label="Admin Navigation">
+      <aside className={`admin-sidebar ${sidebarOpen ? 'open' : ''}`} aria-label="Admin Navigation">
         <div className="admin-sidebar-header">
           <Brand />
+          <button
+            type="button"
+            className="portal-sidebar-close"
+            onClick={() => setSidebarOpen(false)}
+            aria-label="Close menu"
+          >
+            <X size={20} />
+          </button>
         </div>
 
         <nav className="admin-nav-list">
@@ -86,6 +106,7 @@ export default function AdminLayout({
                 href={item.path}
                 className={`admin-nav-item ${isActive ? 'active' : ''}`}
                 aria-current={isActive ? 'page' : undefined}
+                onClick={() => setSidebarOpen(false)}
               >
                 <Icon size={18} className="admin-nav-icon" />
                 <span className="admin-nav-label">{item.label}</span>
@@ -100,6 +121,14 @@ export default function AdminLayout({
         {/* Header */}
         <header className="admin-topbar">
           <div className="admin-topbar-left">
+            <button
+              type="button"
+              className="portal-mobile-menu-btn"
+              onClick={() => setSidebarOpen(true)}
+              aria-label="Open menu"
+            >
+              <Menu size={20} />
+            </button>
             <h1 className="admin-topbar-title">{title}</h1>
           </div>
 

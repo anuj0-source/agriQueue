@@ -14,19 +14,9 @@ router = APIRouter(
     tags=["bookings"]
 )
 
-SLOT_TIME_MAP = {
-    1: "09:00 - 10:00 AM",
-    2: "10:00 - 11:00 AM",
-    3: "11:00 - 12:00 PM",
-    4: "12:00 - 01:00 PM",
-    5: "01:00 - 02:00 PM",
-}
 
-CROP_PRICE_PER_KG = {
-    "Wheat": 23,
-    "Rice": 19,
-    "Maize": 20,
-}
+from models.produce import Produce
+from models.slot import Slot
 
 def format_token(center_name: str, token_num: int) -> str:
     # Take last character or word (e.g. Center A -> A)
@@ -57,8 +47,40 @@ async def create_booking(
     )
     token_number = (count_today or 0) + 40  # Start around 40 for realistic demo queue numbers
 
-    price_per_kg = CROP_PRICE_PER_KG.get(data.produce, 22)
-    total_price = price_per_kg * (data.quantity_kg or 1000)
+    # Fetch Produce to get exact price
+    produce_record = await db.scalar(
+        select(Produce).where(
+            Produce.center_id == data.procurement_center_id,
+            Produce.produce_name == data.produce
+        )
+    )
+    price_per_kg = produce_record.price_per_kg if produce_record else 20
+    quantity_kg = data.quantity_kg or 1000
+    total_price = price_per_kg * quantity_kg
+
+    # Capacity Enforcement — count ACTUAL quantity booked today for this slot
+    if data.slot_id:
+        slot = await db.scalar(select(Slot).where(Slot.id == data.slot_id))
+        if slot and slot.capacity:
+            # Sum quantity already booked in this slot today (excluding cancelled)
+            from datetime import date
+            today = date.today()
+            booked_today_qty = await db.scalar(
+                select(func.coalesce(func.sum(Booking.quantity_kg), 0)).where(
+                    Booking.slot_id == data.slot_id,
+                    Booking.procurement_center_id == data.procurement_center_id,
+                    func.date(Booking.booked_at) == today,
+                    Booking.status.notin_(["Cancelled"])
+                )
+            ) or 0
+            available = slot.capacity - booked_today_qty
+            if quantity_kg > available:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Requested quantity exceeds slot capacity. Available: {max(0, available)} kg"
+                )
+            # Update the running count on the slot record
+            slot.booked_count = booked_today_qty + quantity_kg
 
     # Active queue ahead calculation
     ahead_count = await db.scalar(
@@ -82,7 +104,7 @@ async def create_booking(
         procurement_center_id=data.procurement_center_id,
         status="Confirmed",
         produce=data.produce,
-        quantity_kg=data.quantity_kg or 1000,
+        quantity_kg=quantity_kg,
         total_price=total_price,
         slot_id=data.slot_id or 1,
         produce_type=data.produce_type or "Standard Grade",
@@ -131,8 +153,9 @@ async def get_my_bookings(
     user_id = payload.get("user_id")
 
     query = (
-        select(Booking, ProcurementCenter)
+        select(Booking, ProcurementCenter, Slot)
         .join(ProcurementCenter, Booking.procurement_center_id == ProcurementCenter.id)
+        .outerjoin(Slot, Booking.slot_id == Slot.id)
         .where(Booking.farmer_id == user_id)
         .order_by(Booking.booked_at.desc())
     )
@@ -140,9 +163,12 @@ async def get_my_bookings(
     rows = result.all()
 
     bookings_list = []
-    for booking, center in rows:
+    for booking, center, slot in rows:
         formatted_tok = format_token(center.name, booking.token_number)
-        slot_label = SLOT_TIME_MAP.get(booking.slot_id, "10:00 - 11:00 AM")
+        if slot:
+            slot_label = f"{slot.start_time} - {slot.end_time}"
+        else:
+            slot_label = "Time not available"
         date_str = booking.booked_at.strftime("%d %b %Y")
         bookings_list.append(
             BookingResponse(
@@ -166,3 +192,27 @@ async def get_my_bookings(
             )
         )
     return bookings_list
+
+@router.patch("/{booking_id}/cancel")
+async def cancel_booking(
+    booking_id: int,
+    db: AsyncSession = Depends(get_db),
+    access_token: Optional[str] = Cookie(default=None)
+):
+    payload = isAuthenticated(access_token)
+    if not payload:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+    user_id = payload.get("user_id")
+
+    booking = await db.scalar(select(Booking).where(Booking.id == booking_id, Booking.farmer_id == user_id))
+    if not booking:
+        raise HTTPException(status_code=404, detail="Booking not found or not owned by you")
+
+    if booking.status in ["Completed", "Cancelled", "Serving"]:
+        raise HTTPException(status_code=400, detail=f"Cannot cancel a booking that is currently {booking.status}")
+
+    booking.status = "Cancelled"
+    await db.commit()
+
+    return {"success": True, "message": "Booking cancelled successfully"}
