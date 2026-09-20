@@ -704,3 +704,56 @@ export async function subscribePushNotification(subscription) {
   }
   return data
 }
+
+export async function registerPushNotifications() {
+  if (typeof window === 'undefined' || !('serviceWorker' in navigator) || !('PushManager' in window)) {
+    return null
+  }
+  try {
+    const permission = await Notification.requestPermission()
+    if (permission !== 'granted') {
+      console.warn('[Push] Notification permission not granted:', permission)
+      return null
+    }
+
+    const registration = await navigator.serviceWorker.register('/sw.js')
+    await navigator.serviceWorker.ready
+
+    let subscription = await registration.pushManager.getSubscription()
+    if (!subscription) {
+      const publicVapidKey = import.meta.env.VITE_VAPID_PUBLIC_KEY
+      if (!publicVapidKey) {
+        console.warn('[Push] VITE_VAPID_PUBLIC_KEY is not defined in frontend .env')
+        return null
+      }
+
+      const padding = '='.repeat((4 - (publicVapidKey.length % 4)) % 4)
+      const base64 = (publicVapidKey + padding).replace(/-/g, '+').replace(/_/g, '/')
+      const rawData = window.atob(base64)
+      const outputArray = new Uint8Array(rawData.length)
+      for (let i = 0; i < rawData.length; ++i) {
+        outputArray[i] = rawData.charCodeAt(i)
+      }
+
+      subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: outputArray
+      })
+    }
+
+    if (subscription) {
+      const subData = JSON.parse(JSON.stringify(subscription))
+      await subscribePushNotification({
+        endpoint: subData.endpoint,
+        p256dh: subData.keys?.p256dh || '',
+        auth: subData.keys?.auth || ''
+      })
+      console.log('[Push] Notification subscription active & synced with backend')
+      return subscription
+    }
+  } catch (err) {
+    console.error('[Push] Setup failed:', err)
+    return null
+  }
+}
+

@@ -59,8 +59,7 @@ export default function AdminDashboardPage() {
     { name: 'Center D', performance: 85 },
   ]
 
-  // SVG Line Chart coordinates calculation for 4 months (Jul, Aug, Sep, Oct)
-  // ViewBox: 0 0 400 180
+  // SVG Line Chart coordinates calculation
   const chartWidth = 400
   const chartHeight = 160
   const paddingX = 45
@@ -68,21 +67,31 @@ export default function AdminDashboardPage() {
   const innerWidth = chartWidth - paddingX * 2
   const innerHeight = chartHeight - paddingY * 2
 
+  const len = trendData.length
+  const maxVal = Math.max(5, ...trendData.map(d => Number(d.value) || 0))
+  const gridTicks = [0, Math.round(maxVal * 0.25), Math.round(maxVal * 0.5), Math.round(maxVal * 0.75), maxVal]
+
   const points = trendData.map((d, i) => {
-    const x = paddingX + (i / (trendData.length - 1)) * innerWidth
-    const y = chartHeight - paddingY - (d.value / 50) * innerHeight
+    const x = len > 1 ? paddingX + (i / (len - 1)) * innerWidth : chartWidth / 2
+    const y = chartHeight - paddingY - ((Number(d.value) || 0) / maxVal) * innerHeight
     return { x, y, ...d }
   })
 
   // Generate smooth SVG curve path
-  const curvePath = points.reduce((acc, pt, i, arr) => {
-    if (i === 0) return `M ${pt.x},${pt.y}`
-    const prev = arr[i - 1]
-    const cx = (prev.x + pt.x) / 2
-    return `${acc} C ${cx},${prev.y} ${cx},${pt.y} ${pt.x},${pt.y}`
-  }, '')
+  const curvePath = points.length === 0
+    ? ''
+    : points.length === 1
+      ? `M ${points[0].x - 30},${points[0].y} L ${points[0].x + 30},${points[0].y}`
+      : points.reduce((acc, pt, i, arr) => {
+          if (i === 0) return `M ${pt.x},${pt.y}`
+          const prev = arr[i - 1]
+          const cx = (prev.x + pt.x) / 2
+          return `${acc} C ${cx},${prev.y} ${cx},${pt.y} ${pt.x},${pt.y}`
+        }, '')
 
-  const areaPath = `${curvePath} L ${points[points.length - 1].x},${chartHeight - paddingY} L ${points[0].x},${chartHeight - paddingY} Z`
+  const areaPath = points.length <= 1
+    ? ''
+    : `${curvePath} L ${points[points.length - 1].x},${chartHeight - paddingY} L ${points[0].x},${chartHeight - paddingY} Z`
 
   // SVG Donut Chart calculation
   const donutSize = 170
@@ -181,8 +190,8 @@ export default function AdminDashboardPage() {
                 </defs>
 
                 {/* Horizontal Grid lines */}
-                {[0, 10, 20, 30, 40, 50].map((val) => {
-                  const y = chartHeight - paddingY - (val / 50) * innerHeight
+                {gridTicks.map((val) => {
+                  const y = chartHeight - paddingY - (val / maxVal) * innerHeight
                   return (
                     <g key={val} className="trend-grid-row">
                       <line

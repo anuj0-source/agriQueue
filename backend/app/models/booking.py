@@ -16,5 +16,5 @@ class Booking(Base):
     produce_type = Column(String,nullable=False)
     estimated_wait_time = Column(Integer,nullable=False)
     booked_at = Column(DateTime,nullable=False)
-    token_number=Column(Integer,nullable=False)
-    
+    token_number = Column(Integer, nullable=False)
+    served_by_staff_id = Column(Integer, nullable=True)
