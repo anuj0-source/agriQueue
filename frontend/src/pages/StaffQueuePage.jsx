@@ -163,13 +163,17 @@ export default function StaffQueuePage() {
         {/* ── Now Serving Banner ── */}
         <div className={`qm-now-serving ${hasActiveToken ? 'qm-now-serving-active' : ''}`}>
           <div className="qm-now-serving-left">
-            <span className="qm-ns-eyebrow">NOW SERVING</span>
-            <span className="qm-ns-token">{q.current_token || '—'}</span>
-            {serving[0] && <span className="qm-ns-produce"><CropIcon name={serving[0].produce} size={20}/>{serving[0].produce}</span>}
+            <span className="qm-ns-eyebrow">
+              {hasActiveToken ? `YOUR COUNTER (${q.staff_name || 'YOU'})` : `YOUR COUNTER (${q.staff_name || 'YOU'} — READY)`}
+            </span>
+            <span className="qm-ns-token">{hasActiveToken ? q.current_token : 'Ready to Call'}</span>
+            {hasActiveToken && q.current_produce && (
+              <span className="qm-ns-produce"><CropIcon name={q.current_produce} size={20}/>{q.current_produce}</span>
+            )}
           </div>
           <div className="qm-now-serving-right">
             <div className="qm-ns-next">
-              <span className="qm-ns-next-label">Up Next</span>
+              <span className="qm-ns-next-label">Up Next in Line</span>
               <span className="qm-ns-next-token">{q.next_token || '—'}</span>
             </div>
           </div>
@@ -179,7 +183,7 @@ export default function StaffQueuePage() {
         <div className="qm-lane-wrapper">
           <div className="qm-lane-label-row">
             <span className="qm-lane-label qm-lane-label-done">✓ Done</span>
-            <span className="qm-lane-label qm-lane-label-serving">⬤ At Counter</span>
+            <span className="qm-lane-label qm-lane-label-serving">⬤ Active Counters</span>
             <span className="qm-lane-label qm-lane-label-waiting">⟳ Waiting</span>
           </div>
 
@@ -201,18 +205,42 @@ export default function StaffQueuePage() {
             {/* Arrow */}
             <div className="qm-lane-arrow"><ArrowRight size={22}/></div>
 
-            {/* Counter / Serving */}
-            <div className="qm-counter">
-              <div className="qm-counter-screen">
-                <span className="qm-counter-label">COUNTER</span>
-                <span className="qm-counter-token">{q.current_token || '—'}</span>
-              </div>
-              {serving[0] && (
-                <div className="qm-counter-card">
-                  <div className="qm-card-crop"><CropIcon name={serving[0].produce} size={28}/></div>
-                  <span className="qm-card-produce">{serving[0].produce}</span>
+            {/* Counters / Serving */}
+            <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'center' }}>
+              {/* This staff member's counter */}
+              <div className="qm-counter">
+                <div className="qm-counter-screen" style={{
+                  border: hasActiveToken ? '2px solid #22c55e' : '1.5px solid #475569',
+                  background: hasActiveToken ? 'linear-gradient(135deg, #075533 0%, #0f172a 100%)' : 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)'
+                }}>
+                  <span className="qm-counter-label">{q.staff_name ? `${q.staff_name} (YOU)` : 'YOUR COUNTER'}</span>
+                  <span className="qm-counter-token" style={{ color: hasActiveToken ? '#4ade80' : '#94a3b8' }}>
+                    {hasActiveToken ? q.current_token : 'Ready'}
+                  </span>
                 </div>
-              )}
+                {hasActiveToken && q.current_produce && (
+                  <div className="qm-counter-card">
+                    <div className="qm-card-crop"><CropIcon name={q.current_produce} size={28}/></div>
+                    <span className="qm-card-produce">{q.current_produce}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Other staff counters active at this center */}
+              {(q.active_counters || []).filter(c => !c.is_you).map(c => (
+                <div key={c.booking_id} className="qm-counter" style={{ opacity: 0.9 }}>
+                  <div className="qm-counter-screen" style={{ background: '#334155', border: '1.5px dashed #64748b' }}>
+                    <span className="qm-counter-label">{c.staff_name || 'STAFF'}</span>
+                    <span className="qm-counter-token" style={{ color: '#93c5fd' }}>{c.token}</span>
+                  </div>
+                  {c.produce && (
+                    <div className="qm-counter-card" style={{ background: '#f1f5f9', borderColor: '#cbd5e1', animation: 'none' }}>
+                      <div className="qm-card-crop"><CropIcon name={c.produce} size={24}/></div>
+                      <span className="qm-card-produce">{c.produce}</span>
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
 
             {/* Arrow */}

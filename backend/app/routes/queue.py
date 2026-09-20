@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Cookie
+from fastapi import APIRouter, Depends, HTTPException, Cookie, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -61,12 +61,12 @@ async def _build_farmer_queue(center_id: int, user_id: Optional[int], db: AsyncS
             None
         )
 
-    # "Now Serving" = the booking currently in "Serving" status.
-    # If no Serving status yet, "-" (staff hasn't called anyone yet).
-    serving_booking = next((b for b in bookings if b.status == "Serving"), None)
-
+    # "Now Serving" = all bookings currently in "Serving" status (across active counters)
+    serving_bookings = [b for b in bookings if b.status == "Serving"]
     serving_token_str = (
-        f"{prefix}-{serving_booking.token_number:03d}" if serving_booking else "-"
+        ", ".join([f"{prefix}-{b.token_number:03d}" for b in serving_bookings])
+        if serving_bookings
+        else "-"
     )
     your_token_str = (
         f"{prefix}-{user_booking.token_number:03d}" if user_booking else "No Active Token"
@@ -78,16 +78,16 @@ async def _build_farmer_queue(center_id: int, user_id: Optional[int], db: AsyncS
         ahead_count = sum(
             1 for b in bookings
             if b.token_number < user_booking.token_number
-            and b.status in ["Confirmed", "Waiting", "Serving"]
+            and b.status in ["Confirmed", "Waiting"]
         )
 
-    # Show last 10 bookings in the queue table (so farmer can see their position)
-    relevant = [b for b in bookings if b.status != "Cancelled"][-10:]
+    # Show bookings in the queue table (so farmer can see their position)
+    relevant = [b for b in bookings if b.status != "Cancelled"][-20:]
     queue_list = []
     for b in relevant:
         tok_str = f"{prefix}-{b.token_number:03d}"
         is_curr = user_booking and (b.id == user_booking.id)
-        is_serving_item = serving_booking and (b.id == serving_booking.id) and not is_curr
+        is_serving_item = (b.status == "Serving") and not is_curr
         display_status = "You" if is_curr else ("Serving" if is_serving_item else b.status)
         queue_list.append({
             "token": tok_str,
@@ -141,6 +141,7 @@ async def get_live_queue(
 @router.get("/{center_id}/stream")
 async def stream_live_queue(
     center_id: int,
+    request: Request,
     access_token: Optional[str] = Cookie(default=None)
 ):
     # Resolve user_id once at connection time
@@ -153,6 +154,8 @@ async def stream_live_queue(
     async def event_generator():
         try:
             while True:
+                if await request.is_disconnected():
+                    break
                 # Use a FRESH session each tick so reads are never stale
                 try:
                     async with AsyncSessionLocal() as db:

@@ -7,7 +7,6 @@ import {
   PackageCheck,
   CreditCard,
   BarChart3,
-  Bell,
   ChevronDown,
   LogOut,
   Menu,
@@ -34,7 +33,6 @@ export default function AdminLayout({
   children,
 }) {
   const [showUserMenu, setShowUserMenu] = useState(false)
-  const [showNotifications, setShowNotifications] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
   // Read real admin data from session
@@ -151,41 +149,6 @@ export default function AdminLayout({
               </div>
             )}
 
-            {/* Notification Bell */}
-            <div className="admin-bell-wrap">
-              <button
-                type="button"
-                className="admin-icon-btn"
-                aria-label="View Notifications"
-                onClick={() => setShowNotifications(!showNotifications)}
-              >
-                <Bell size={19} />
-                <span className="admin-notif-dot" />
-              </button>
-
-              {showNotifications && (
-                <div className="admin-popover-dropdown notif-dropdown">
-                  <div className="popover-header">
-                    <strong>Admin Alerts</strong>
-                    <span className="badge-chip">3 New</span>
-                  </div>
-                  <ul className="popover-list">
-                    <li>
-                      <strong>Center A Reached 90% Capacity</strong>
-                      <span>10 minutes ago</span>
-                    </li>
-                    <li>
-                      <strong>₹14.2 Lakh DBT Batch Disbursed</strong>
-                      <span>1 hour ago</span>
-                    </li>
-                    <li>
-                      <strong>15 New Farmers Registered</strong>
-                      <span>Today, 09:30 AM</span>
-                    </li>
-                  </ul>
-                </div>
-              )}
-            </div>
 
             {/* Admin Avatar */}
             <div className="admin-user-avatar-wrap">

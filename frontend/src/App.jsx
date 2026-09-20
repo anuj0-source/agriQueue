@@ -23,6 +23,7 @@ import StaffProcurementPage from './pages/StaffProcurementPage'
 import StaffPaymentsPage from './pages/StaffPaymentsPage'
 import StaffProfilePage from './pages/StaffProfilePage'
 import { NotificationProvider } from './context/NotificationContext'
+import { registerPushNotifications } from './api'
 import './App.css'
 
 class AppErrorBoundary extends Component {
@@ -112,6 +113,19 @@ function useCurrentPath() {
 export default function App() {
   const path = useCurrentPath()
   
+  useEffect(() => {
+    // Automatically register push notifications for farmers
+    try {
+      const stored = localStorage.getItem('currentUser')
+      if (stored) {
+        const u = JSON.parse(stored)
+        if (!u.role || u.role === 'farmer') {
+          registerPushNotifications()
+        }
+      }
+    } catch {}
+  }, [path])
+
   // Basic query param stripping for routing
   const cleanPath = path.split('?')[0]
   
