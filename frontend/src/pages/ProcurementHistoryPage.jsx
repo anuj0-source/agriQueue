@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react'
 import { ChevronDown } from 'lucide-react'
 import FarmerLayout from '../components/FarmerLayout'
 import { TableRowsSkeleton } from '../components/Skeletons'
-import { PROCUREMENT_HISTORY } from '../data/farmer-data'
 import { getProcurementHistory } from '../api'
 
 export default function ProcurementHistoryPage() {
@@ -78,16 +77,17 @@ export default function ProcurementHistoryPage() {
                   <th>Center</th>
                   <th>Produce</th>
                   <th>Quantity</th>
+                  <th>Verification</th>
                   <th>Amount</th>
                   <th>Status</th>
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
-                  <TableRowsSkeleton rows={5} columns={6} />
+                  <TableRowsSkeleton rows={5} columns={7} />
                 ) : filteredHistory.length === 0 ? (
                   <tr>
-                    <td colSpan={6} style={{ textAlign: 'center', padding: '36px', color: 'var(--muted)' }}>
+                    <td colSpan={7} style={{ textAlign: 'center', padding: '36px', color: 'var(--muted)' }}>
                       No procurement records found.
                     </td>
                   </tr>
@@ -98,6 +98,15 @@ export default function ProcurementHistoryPage() {
                       <td>{row.center}</td>
                       <td className="cell-produce">{row.produce}</td>
                       <td>{row.quantity}</td>
+                      <td>
+                        {row.actual_weight_kg ? (
+                          <span style={{ fontSize: '12px', lineHeight: 1.45, display: 'inline-block' }}>
+                            <strong>{row.quality_grade}</strong><br />
+                            {row.actual_weight_kg} kg actual · {row.deductions_kg || 0} kg deducted<br />
+                            Moisture {row.moisture_percent ?? 0}% · Impurity {row.impurity_percent ?? 0}%
+                          </span>
+                        ) : <span style={{ color: 'var(--muted)' }}>Pending verification</span>}
+                      </td>
                       <td className="cell-amount">{row.amount}</td>
                       <td>
                         <span className="status-pill completed">{row.status}</span>

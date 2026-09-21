@@ -18,6 +18,14 @@ router = APIRouter(
 from models.produce import Produce
 from models.slot import Slot
 
+SLOT_TIME_MAP = {
+    1: "09:00 AM - 10:00 AM",
+    2: "10:00 AM - 11:00 AM",
+    3: "11:00 AM - 12:00 PM",
+    4: "12:00 PM - 01:00 PM",
+    5: "01:00 PM - 02:00 PM",
+}
+
 def format_token(center_name: str, token_num: int) -> str:
     # Take last character or word (e.g. Center A -> A)
     parts = center_name.split()

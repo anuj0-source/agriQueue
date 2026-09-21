@@ -3,6 +3,7 @@ import { Loader2, Calendar, Clock, MapPin, ArrowRight } from 'lucide-react'
 import CropIcon from '../components/CropIcon'
 import FarmerLayout from '../components/FarmerLayout'
 import AuthModal from '../components/AuthModal'
+import BookingDetailModal from '../components/BookingDetailModal'
 import { DashboardSkeleton } from '../components/Skeletons'
 import { getFarmerDashboard, registerPushNotifications } from '../api'
 import {
@@ -78,7 +79,7 @@ export default function FarmerDashboard() {
   }, [user])
 
   const farmerName = user?.full_name || FARMER_PROFILE.name
-  const farmerId = user?.farmer_id || (user?.mobile_number ? `+91 ${user.mobile_number}` : FARMER_PROFILE.farmerId)
+  const farmerId = user?.farmer_id || 'N/A'
   const locationInfo = [user?.village, user?.district, user?.state].filter(Boolean).join(', ')
 
   return (

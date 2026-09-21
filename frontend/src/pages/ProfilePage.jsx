@@ -16,7 +16,7 @@ export default function ProfilePage() {
         const u = JSON.parse(stored)
         return {
           name: u.full_name || FARMER_PROFILE.name,
-          farmerId: u.farmer_id || FARMER_PROFILE.farmerId,
+          farmerId: u.farmer_id || 'N/A',
           mobile: u.mobile_number ? `+91 ${u.mobile_number}` : FARMER_PROFILE.mobile,
           village: u.village || FARMER_PROFILE.village,
           district: u.district || FARMER_PROFILE.district,
@@ -30,7 +30,10 @@ export default function ProfilePage() {
     } catch (err) {
       // Ignore JSON error
     }
-    return FARMER_PROFILE
+    return {
+      ...FARMER_PROFILE,
+      farmerId: FARMER_PROFILE.farmerId || 'N/A',
+    }
   })
 
   useEffect(() => {
@@ -41,7 +44,7 @@ export default function ProfilePage() {
           const u = data.user
           setProfile({
             name: u.full_name || FARMER_PROFILE.name,
-            farmerId: u.farmer_id || (u.mobile_number ? `+91 ${u.mobile_number}` : FARMER_PROFILE.farmerId),
+            farmerId: u.farmer_id || 'N/A',
             mobile: u.mobile_number ? `+91 ${u.mobile_number}` : FARMER_PROFILE.mobile,
             village: u.village || FARMER_PROFILE.village,
             district: u.district || FARMER_PROFILE.district,

@@ -72,6 +72,31 @@ async def subscribe_push_api(
 ):
     return await _handle_subscribe(sub, access_token, db)
 
+@router.post("/notifications/test")
+async def send_test_notification(
+    access_token: Optional[str] = Cookie(default=None),
+    db: AsyncSession = Depends(get_db)
+):
+    user = isAuthenticated(access_token)
+    if not user:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    user_id = user.get("user_id") or user.get("id")
+    subs = (await db.scalars(select(PushSubscription).where(PushSubscription.user_id == user_id))).all()
+    if not subs:
+        return {"success": False, "message": "No push subscription found. Click 'Enable Notifications' first!"}
+    
+    sent = 0
+    for sub in subs:
+        ok = send_push_notification(sub, {
+            "title": "Payment credited",
+            "body": "₹12,000 has been credited for your Maize procurement. Ref: UTR9283749281.",
+            "icon": "/logo.png"
+        })
+        if ok:
+            sent += 1
+            
+    return {"success": True, "message": f"Test notification sent to {sent} device(s)!", "sent_count": sent}
+
 
 def send_push_notification(subscription: PushSubscription, payload_data: dict):
     vapid_key = os.getenv("VAPID_PRIVATE_KEY")

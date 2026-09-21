@@ -7,6 +7,9 @@ from models.farmer import Farmer
 from models.booking import Booking
 from models.slot import Slot
 from models.produce import Produce
+from models.payment import Payment
+from models.payment_profile import PaymentProfile
+from payment_utils import mask_destination, payment_status_label
 from typing import Optional, Dict, Any, List
 from datetime import datetime, date, timedelta
 from isAuthenticated import isAuthenticated
@@ -498,46 +501,40 @@ async def get_admin_procurements(db: AsyncSession = Depends(get_db)):
 
 @router.get("/payments")
 async def get_admin_payments(db: AsyncSession = Depends(get_db)):
-    # Calculate real summary
-    completed_bookings = (await db.execute(
-        select(func.sum(Booking.total_price), func.count(Booking.id))
-        .where(Booking.status == "Completed")
-    )).first()
-    
-    confirmed_bookings = (await db.execute(
-        select(func.sum(Booking.total_price), func.count(Booking.id))
-        .where(Booking.status == "Confirmed")
-    )).first()
-
-    total_disbursed = completed_bookings[0] or 0
-    successful_tx = completed_bookings[1] or 0
-
-    pending_approvals = confirmed_bookings[0] or 0
-    processing_tx = confirmed_bookings[1] or 0
-
-    # Group or list DBT disbursements
     rows = (
         await db.execute(
-            select(Booking, Farmer)
-            .join(Farmer, Booking.farmer_id == Farmer.id)
-            .where(Booking.status.in_(["Completed", "Confirmed"]))
-            .order_by(desc(Booking.booked_at))
+            select(Payment, Booking, Farmer, PaymentProfile)
+            .join(Booking, Payment.booking_id == Booking.id)
+            .join(Farmer, Payment.farmer_id == Farmer.id)
+            .outerjoin(PaymentProfile, PaymentProfile.farmer_id == Farmer.id)
+            .order_by(desc(Payment.updated_at))
             .limit(20)
         )
     ).all()
 
+    total_disbursed = sum(payment.amount for payment, _, _, _ in rows if payment.status == "Credited")
+    pending_approvals = sum(
+        payment.amount for payment, _, _, _ in rows
+        if payment_status_label(payment) in {"Scheduled", "Processing", "On Hold"}
+    )
+    successful_tx = sum(1 for payment, _, _, _ in rows if payment.status == "Credited")
+    processing_tx = sum(
+        1 for payment, _, _, _ in rows
+        if payment_status_label(payment) in {"Scheduled", "Processing", "On Hold"}
+    )
+
     items = []
-    for idx, (b, f) in enumerate(rows):
+    for payment, booking, farmer, profile in rows:
         items.append({
-            "id": f"TXN-{b.id:05d}",
-            "farmer_name": f.full_name,
-            "farmer_id": f.farmer_id or f"FK{100000 + f.id}",
-            "produce": b.produce,
-            "quantity_kg": b.quantity_kg,
-            "amount": b.total_price,
-            "bank_account": f"SBI •••• {3000 + f.id}",
-            "status": "Credited" if b.status == "Completed" else "In Transit",
-            "date": b.booked_at.strftime("%d %b %Y"),
+            "id": payment.transaction_reference or f"PAY-{payment.id:05d}",
+            "farmer_name": farmer.full_name,
+            "farmer_id": farmer.farmer_id or f"FK{100000 + farmer.id}",
+            "produce": booking.produce,
+            "quantity_kg": booking.quantity_kg,
+            "amount": payment.amount,
+            "bank_account": mask_destination(profile.method, profile.destination_last4, profile.ifsc) if profile else "Not configured",
+            "status": payment_status_label(payment),
+            "date": payment.expected_settlement_date.strftime("%d %b %Y"),
         })
 
     return {

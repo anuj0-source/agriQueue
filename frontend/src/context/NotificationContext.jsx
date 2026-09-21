@@ -34,7 +34,23 @@ export function NotificationProvider({ children }) {
   // Request browser notification permissions on load
   useEffect(() => {
     if ('Notification' in window && Notification.permission === 'default') {
-      Notification.requestPermission()
+      Notification.requestPermission().catch(() => {})
+    }
+  }, [])
+
+  // Listen for push notifications forwarded by service worker
+  useEffect(() => {
+    if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+      const handleSwMessage = (event) => {
+        if (event.data?.type === 'PUSH_NOTIFICATION_RECEIVED') {
+          const { title, message, type } = event.data.notification || {}
+          if (message) {
+            addNotification(message, type || 'success', title)
+          }
+        }
+      }
+      navigator.serviceWorker.addEventListener('message', handleSwMessage)
+      return () => navigator.serviceWorker.removeEventListener('message', handleSwMessage)
     }
   }, [])
 

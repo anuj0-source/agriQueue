@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { ArrowRight, SkipForward, RefreshCw, CheckCircle2, Clock, Loader2, Wifi, WifiOff, PackageCheck, X, Check, Users } from 'lucide-react'
+import { ArrowRight, SkipForward, RefreshCw, CheckCircle2, Clock, Loader2, Wifi, PackageCheck, X, Check, Users } from 'lucide-react'
 import StaffLayout from '../components/StaffLayout'
 import CropIcon from '../components/CropIcon'
 import { useStaffQueueSSE } from '../hooks/useStaffQueueSSE'
@@ -17,7 +17,11 @@ export default function StaffQueuePage() {
   const prevWaitingRef = useRef(null)
 
   const [showCompletePanel, setShowCompletePanel] = useState(false)
-  const [procurementForm, setProcurementForm] = useState({ quantity_kg: '', produce_type: 'Standard Grade', total_price: '', status: 'Completed' })
+  const [procurementForm, setProcurementForm] = useState({
+    actual_weight_kg: '', deductions_kg: '0', produce_type: 'Standard Grade',
+    moisture_percent: '0', impurity_percent: '0', rate_per_kg: '', quality_notes: '', status: 'Completed',
+    auto_credit: true,
+  })
   const [completing, setCompleting] = useState(false)
   const [currentBookingDetails, setCurrentBookingDetails] = useState(null)
 
@@ -84,13 +88,23 @@ export default function StaffQueuePage() {
       const rec = records.find(r => r.id === bid)
       if (rec) {
         setCurrentBookingDetails(rec)
-        setProcurementForm({ quantity_kg: rec.quantity_kg || '', produce_type: rec.produce_type || 'Standard Grade', total_price: rec.total_price || '', status: 'Completed' })
+        setProcurementForm({
+          actual_weight_kg: rec.actual_weight_kg ?? rec.quantity_kg ?? '',
+          deductions_kg: rec.deductions_kg ?? 0,
+          produce_type: rec.produce_type || 'Standard Grade',
+          moisture_percent: rec.moisture_percent ?? 0,
+          impurity_percent: rec.impurity_percent ?? 0,
+          rate_per_kg: rec.rate_per_kg ?? (rec.quantity_kg ? Math.round(rec.total_price / rec.quantity_kg) : ''),
+          quality_notes: rec.quality_notes || '',
+          status: 'Completed',
+          auto_credit: true,
+        })
       } else {
-        setProcurementForm({ quantity_kg: '', produce_type: 'Standard Grade', total_price: '', status: 'Completed' })
+        setProcurementForm({ actual_weight_kg: '', deductions_kg: '0', produce_type: 'Standard Grade', moisture_percent: '0', impurity_percent: '0', rate_per_kg: '', quality_notes: '', status: 'Completed', auto_credit: true })
         setCurrentBookingDetails(null)
       }
     } catch {
-      setProcurementForm({ quantity_kg: '', produce_type: 'Standard Grade', total_price: '', status: 'Completed' })
+      setProcurementForm({ actual_weight_kg: '', deductions_kg: '0', produce_type: 'Standard Grade', moisture_percent: '0', impurity_percent: '0', rate_per_kg: '', quality_notes: '', status: 'Completed', auto_credit: true })
       setCurrentBookingDetails(null)
     }
     setShowCompletePanel(true)
@@ -102,8 +116,8 @@ export default function StaffQueuePage() {
     if (!bid) return
     setCompleting(true)
     try {
-      await updateStaffProcurement(bid, procurementForm)
-      showToast(`✓ Procurement for ${tok} completed!`, 'success')
+      const result = await updateStaffProcurement(bid, procurementForm)
+      showToast(`✓ Procurement for ${tok} verified. ${result.receipt_number || 'Payment scheduled.'}`, 'success')
       addNotification(`Procurement completed for token ${tok}`, 'success', 'Procurement Done')
       setShowCompletePanel(false)
     } catch (e) { showToast(e.message, 'error') }
@@ -119,12 +133,13 @@ export default function StaffQueuePage() {
   const q = queueData || {}
   const queue = q.queue || []
   const hasActiveToken = !!q.current_booking_id && q.current_token && q.current_token !== '-'
+  const acceptedWeight = Math.max(0, Number(procurementForm.actual_weight_kg || 0) - Number(procurementForm.deductions_kg || 0))
+  const estimatedPayable = acceptedWeight * Number(procurementForm.rate_per_kg || 0)
 
   // Split queue into visual lanes
   const completed = queue.filter(b => b.status === 'Completed')
   const serving   = queue.filter(b => b.status === 'Serving')
   const waiting   = queue.filter(b => b.status === 'Confirmed' || b.status === 'Waiting')
-  const skipped   = queue.filter(b => b.status === 'Cancelled')
 
   return (
     <StaffLayout activePath="/staff/queue" title="Queue Management">
@@ -192,7 +207,7 @@ export default function StaffQueuePage() {
             <div className="qm-lane-section qm-section-done">
               {completed.length === 0 ? (
                 <div className="qm-lane-empty-hint">No completed yet</div>
-              ) : completed.slice(-3).map((item, i) => (
+              ) : completed.slice(-3).map((item) => (
                 <div key={item.id} className="qm-card qm-card-done">
                   <span className="qm-card-token">{item.token}</span>
                   <div className="qm-card-crop"><CropIcon name={item.produce} size={22}/></div>
@@ -313,10 +328,16 @@ export default function StaffQueuePage() {
             <div className="qcp-body">
               <div className="qcp-field-row">
                 <div className="qcp-field">
-                  <label className="qcp-label">Weight (kg)</label>
+                  <label className="qcp-label">Actual weight (kg)</label>
                   <input type="number" className="qcp-input" placeholder="e.g. 500"
-                    value={procurementForm.quantity_kg}
-                    onChange={e => setProcurementForm(p => ({ ...p, quantity_kg: e.target.value }))}/>
+                    min="1" value={procurementForm.actual_weight_kg}
+                    onChange={e => setProcurementForm(p => ({ ...p, actual_weight_kg: e.target.value }))}/>
+                </div>
+                <div className="qcp-field">
+                  <label className="qcp-label">Deductions (kg)</label>
+                  <input type="number" className="qcp-input" placeholder="0" min="0"
+                    value={procurementForm.deductions_kg}
+                    onChange={e => setProcurementForm(p => ({ ...p, deductions_kg: e.target.value }))}/>
                 </div>
                 <div className="qcp-field">
                   <label className="qcp-label">Grade</label>
@@ -326,17 +347,53 @@ export default function StaffQueuePage() {
                   </select>
                 </div>
                 <div className="qcp-field">
-                  <label className="qcp-label">Total Amount (₹)</label>
-                  <input type="number" className="qcp-input" placeholder="e.g. 15000"
-                    value={procurementForm.total_price}
-                    onChange={e => setProcurementForm(p => ({ ...p, total_price: e.target.value }))}/>
+                  <label className="qcp-label">Moisture (%)</label>
+                  <input type="number" className="qcp-input" placeholder="e.g. 12" min="0" max="100" step="0.1"
+                    value={procurementForm.moisture_percent}
+                    onChange={e => setProcurementForm(p => ({ ...p, moisture_percent: e.target.value }))}/>
                 </div>
+                <div className="qcp-field">
+                  <label className="qcp-label">Impurity (%)</label>
+                  <input type="number" className="qcp-input" placeholder="e.g. 1" min="0" max="100" step="0.1"
+                    value={procurementForm.impurity_percent}
+                    onChange={e => setProcurementForm(p => ({ ...p, impurity_percent: e.target.value }))}/>
+                </div>
+                <div className="qcp-field">
+                  <label className="qcp-label">Final rate (₹/kg)</label>
+                  <input type="number" className="qcp-input" placeholder="e.g. 25" min="1"
+                    value={procurementForm.rate_per_kg}
+                    onChange={e => setProcurementForm(p => ({ ...p, rate_per_kg: e.target.value }))}/>
+                </div>
+              </div>
+              <div className="qcp-summary" aria-live="polite">
+                <span>Accepted weight <strong>{acceptedWeight.toLocaleString()} kg</strong></span>
+                <span>Net payable <strong>₹{estimatedPayable.toLocaleString()}</strong></span>
+              </div>
+              <div className="qcp-field qcp-field-wide">
+                <label className="qcp-label">Quality notes <span>(optional)</span></label>
+                <textarea className="qcp-input qcp-textarea" rows="2" placeholder="Inspection notes or reason for deductions"
+                  value={procurementForm.quality_notes}
+                  onChange={e => setProcurementForm(p => ({ ...p, quality_notes: e.target.value }))}/>
+              </div>
+              <div className="qcp-auto-credit-box">
+                <label className="qcp-auto-credit-label">
+                  <input
+                    type="checkbox"
+                    id="staff-auto-credit-chk"
+                    checked={Boolean(procurementForm.auto_credit)}
+                    onChange={e => setProcurementForm(p => ({ ...p, auto_credit: e.target.checked }))}
+                  />
+                  <div className="qcp-auto-credit-info">
+                    <span className="qcp-auto-credit-title">⚡ Disburse Payment Immediately (Auto-Credit via DBT)</span>
+                    <span className="qcp-auto-credit-desc">Automatically marks payment as Credited and dispatches instant push notification to farmer</span>
+                  </div>
+                </label>
               </div>
             </div>
             <div className="qcp-footer">
               <button className="qcp-cancel" onClick={() => setShowCompletePanel(false)}>Cancel</button>
               <button className="qcp-confirm" onClick={handleCompleteProcurement}
-                disabled={completing || !procurementForm.quantity_kg || !procurementForm.total_price}>
+                disabled={completing || !procurementForm.actual_weight_kg || !procurementForm.rate_per_kg || acceptedWeight <= 0}>
                 {completing ? <Loader2 size={16} className="spin-icon"/> : <Check size={16}/>}
                 {completing ? 'Saving…' : 'Mark Complete'}
               </button>

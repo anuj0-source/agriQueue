@@ -88,7 +88,7 @@ export async function checkAuthSession() {
         return data
       }
     }
-  } catch (err) {
+  } catch {
     // Network or server unreachable
   }
   return null
@@ -231,7 +231,9 @@ export async function getActiveFarmerCenterId() {
         }
       }
     }
-  } catch {}
+  } catch {
+    return parseInt(localStorage.getItem('lastBookingCenterId') || '1')
+  }
   return parseInt(localStorage.getItem('lastBookingCenterId') || '1')
 }
 
@@ -318,6 +320,50 @@ export async function getPaymentRecords() {
   if (!response.ok) {
     throw new Error('Failed to fetch payment records')
   }
+  return data
+}
+
+export async function getPaymentProfile() {
+  const response = await fetch(`${API_BASE_URL}/dashboard/payment-profile`, {
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+  })
+  const data = await response.json()
+  if (!response.ok) throw new Error(data.detail || 'Failed to load payment destination')
+  return data
+}
+
+export async function savePaymentProfile(payload) {
+  const response = await fetch(`${API_BASE_URL}/dashboard/payment-profile`, {
+    method: 'PUT',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+  const data = await response.json()
+  if (!response.ok) throw new Error(data.detail || 'Failed to save payment destination')
+  return data
+}
+
+export async function raisePaymentDispute(paymentId, reason) {
+  const response = await fetch(`${API_BASE_URL}/dashboard/payments/${paymentId}/dispute`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ reason }),
+  })
+  const data = await response.json()
+  if (!response.ok) throw new Error(data.detail || 'Unable to raise payment dispute')
+  return data
+}
+
+export async function getPaymentReceipt(paymentId) {
+  const response = await fetch(`${API_BASE_URL}/dashboard/payments/${paymentId}/receipt`, {
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+  })
+  const data = await response.json()
+  if (!response.ok) throw new Error(data.detail || 'Unable to load receipt')
   return data
 }
 
@@ -643,6 +689,30 @@ export async function getStaffPayments() {
   return await res.json()
 }
 
+export async function updateStaffPayment(paymentId, payload) {
+  const res = await fetch(`${API_BASE_URL}/staff/payments/${paymentId}`, {
+    method: 'PUT',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+  const data = await res.json()
+  if (!res.ok) throw new Error(data.detail || 'Failed to update payment settlement')
+  return data
+}
+
+export async function batchSettleStaffPayments(payload) {
+  const res = await fetch(`${API_BASE_URL}/staff/payments/batch-settle`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+  const data = await res.json()
+  if (!res.ok) throw new Error(data.detail || 'Failed to disburse batch payments')
+  return data
+}
+
 export async function getStaffProfile() {
   const res = await fetch(`${API_BASE_URL}/staff/profile`, {
     credentials: 'include',
@@ -705,55 +775,110 @@ export async function subscribePushNotification(subscription) {
   return data
 }
 
-export async function registerPushNotifications() {
+export function checkNotificationStatus() {
+  if (typeof window === 'undefined' || !('Notification' in window)) {
+    return 'unsupported'
+  }
+  return Notification.permission
+}
+
+export async function registerPushNotifications(interactive = false) {
   if (typeof window === 'undefined' || !('serviceWorker' in navigator) || !('PushManager' in window)) {
-    return null
+    return { success: false, error: 'Push notifications are not supported in this browser' }
   }
   try {
-    const permission = await Notification.requestPermission()
+    let permission = Notification.permission
+    if (permission !== 'granted') {
+      if (!interactive) {
+        return { success: false, error: 'Permission not yet granted', permission }
+      }
+      permission = await Notification.requestPermission()
+    }
     if (permission !== 'granted') {
       console.warn('[Push] Notification permission not granted:', permission)
-      return null
+      return { success: false, error: 'Notification permission was denied or dismissed', permission }
     }
 
     const registration = await navigator.serviceWorker.register('/sw.js')
     await navigator.serviceWorker.ready
 
+    const publicVapidKey = import.meta.env.VITE_VAPID_PUBLIC_KEY
+    if (!publicVapidKey) {
+      console.warn('[Push] VITE_VAPID_PUBLIC_KEY is not defined in frontend .env')
+      return { success: false, error: 'VAPID public key missing in configuration' }
+    }
+
+    const padding = '='.repeat((4 - (publicVapidKey.length % 4)) % 4)
+    const base64 = (publicVapidKey + padding).replace(/-/g, '+').replace(/_/g, '/')
+    const rawData = window.atob(base64)
+    const outputArray = new Uint8Array(rawData.length)
+    for (let i = 0; i < rawData.length; ++i) {
+      outputArray[i] = rawData.charCodeAt(i)
+    }
+
     let subscription = await registration.pushManager.getSubscription()
     if (!subscription) {
-      const publicVapidKey = import.meta.env.VITE_VAPID_PUBLIC_KEY
-      if (!publicVapidKey) {
-        console.warn('[Push] VITE_VAPID_PUBLIC_KEY is not defined in frontend .env')
-        return null
+      try {
+        subscription = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: outputArray,
+        })
+      } catch (subErr) {
+        console.warn('[Push] Direct subscribe failed, attempting clean subscribe:', subErr)
+        const old = await registration.pushManager.getSubscription()
+        if (old) {
+          try { await old.unsubscribe() } catch {}
+        }
+        subscription = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: outputArray,
+        })
       }
-
-      const padding = '='.repeat((4 - (publicVapidKey.length % 4)) % 4)
-      const base64 = (publicVapidKey + padding).replace(/-/g, '+').replace(/_/g, '/')
-      const rawData = window.atob(base64)
-      const outputArray = new Uint8Array(rawData.length)
-      for (let i = 0; i < rawData.length; ++i) {
-        outputArray[i] = rawData.charCodeAt(i)
-      }
-
-      subscription = await registration.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: outputArray
-      })
     }
 
     if (subscription) {
-      const subData = JSON.parse(JSON.stringify(subscription))
+      const raw = subscription.toJSON ? subscription.toJSON() : JSON.parse(JSON.stringify(subscription))
+      
+      let p256dh = raw.keys?.p256dh
+      let auth = raw.keys?.auth
+      if (!p256dh && subscription.getKey) {
+        const key = subscription.getKey('p256dh')
+        if (key) {
+          p256dh = btoa(String.fromCharCode.apply(null, new Uint8Array(key)))
+            .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+        }
+      }
+      if (!auth && subscription.getKey) {
+        const key = subscription.getKey('auth')
+        if (key) {
+          auth = btoa(String.fromCharCode.apply(null, new Uint8Array(key)))
+            .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+        }
+      }
+
       await subscribePushNotification({
-        endpoint: subData.endpoint,
-        p256dh: subData.keys?.p256dh || '',
-        auth: subData.keys?.auth || ''
+        endpoint: subscription.endpoint,
+        p256dh: p256dh || '',
+        auth: auth || '',
       })
       console.log('[Push] Notification subscription active & synced with backend')
-      return subscription
+      return { success: true, subscription }
     }
   } catch (err) {
     console.error('[Push] Setup failed:', err)
-    return null
+    return { success: false, error: err.message || 'Setup failed' }
   }
+  return { success: false, error: 'Could not obtain subscription' }
+}
+
+export async function sendTestPushNotification() {
+  const res = await fetch(`${API_BASE_URL}/notifications/test`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+  })
+  const data = await res.json()
+  if (!res.ok) throw new Error(data.detail || data.message || 'Failed to send test push')
+  return data
 }
 

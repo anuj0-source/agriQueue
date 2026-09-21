@@ -355,7 +355,18 @@ export default function LiveQueuePage() {
         marginBottom: '16px',
       }}>
         <button
+          type="button"
           onClick={handleBackToCenters}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = '#f8fafc'
+            e.currentTarget.style.borderColor = '#94a3b8'
+            e.currentTarget.style.color = '#0f172a'
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = '#ffffff'
+            e.currentTarget.style.borderColor = '#cbd5e1'
+            e.currentTarget.style.color = '#334155'
+          }}
           style={{
             display: 'inline-flex',
             alignItems: 'center',
@@ -372,7 +383,7 @@ export default function LiveQueuePage() {
           }}
         >
           <ArrowLeft size={16} />
-          <span>← Back to Centers List</span>
+          <span>Back to Centers</span>
         </button>
 
         {bookedCenters.length > 1 && (

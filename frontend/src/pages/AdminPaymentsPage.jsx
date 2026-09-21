@@ -68,14 +68,6 @@ export default function AdminPaymentsPage() {
         <div className="admin-panel-card table-panel-card">
           <div className="panel-header">
             <h2 className="panel-title">Recent DBT Disbursements</h2>
-            <button
-              type="button"
-              className="admin-btn primary"
-              style={{ padding: '6px 14px', fontSize: '13px' }}
-              onClick={() => alert('All queued DBT payment batches have been approved for bank dispatch.')}
-            >
-              Approve Queued Batches
-            </button>
           </div>
 
           <div className="admin-table-responsive">
