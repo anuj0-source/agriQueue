@@ -55,9 +55,13 @@ export default function StaffProcurementPage() {
   const startEdit = (rec) => {
     setEditId(rec.id)
     setEditData({
-      quantity_kg: rec.quantity_kg,
+      actual_weight_kg: rec.actual_weight_kg ?? rec.quantity_kg,
+      deductions_kg: rec.deductions_kg ?? 0,
       produce_type: rec.produce_type,
-      total_price: rec.total_price,
+      moisture_percent: rec.moisture_percent ?? 0,
+      impurity_percent: rec.impurity_percent ?? 0,
+      rate_per_kg: rec.rate_per_kg ?? (rec.quantity_kg ? Math.round(rec.total_price / rec.quantity_kg) : ''),
+      quality_notes: rec.quality_notes || '',
       status: rec.status,
     })
   }
@@ -128,8 +132,10 @@ export default function StaffProcurementPage() {
                 <th>Farmer</th>
                 <th>Produce</th>
                 <th>Grade</th>
-                <th>Qty (kg)</th>
-                <th>Amount</th>
+                <th>Actual / Net</th>
+                <th>Quality metrics</th>
+                <th>Rate</th>
+                <th>Payable</th>
                 <th>Status</th>
                 <th>Action</th>
               </tr>
@@ -137,6 +143,8 @@ export default function StaffProcurementPage() {
             <tbody>
               {filtered.map((rec) => {
                 const isEditing = editId === rec.id
+                const netWeight = Math.max(0, Number(editData.actual_weight_kg || rec.actual_weight_kg || rec.quantity_kg || 0) - Number(editData.deductions_kg || rec.deductions_kg || 0))
+                const payable = netWeight * Number(editData.rate_per_kg || rec.rate_per_kg || 0)
                 return (
                   <tr key={rec.id} className={isEditing ? 'sp-row-editing' : ''}>
                     <td><span className="sp-token">{rec.token}</span></td>
@@ -166,21 +174,39 @@ export default function StaffProcurementPage() {
                         <input
                           type="number"
                           className="sp-input sp-input-sm"
-                          value={editData.quantity_kg}
-                          onChange={e => setEditData(d => ({ ...d, quantity_kg: e.target.value }))}
+                          min="1"
+                          value={editData.actual_weight_kg}
+                          onChange={e => setEditData(d => ({ ...d, actual_weight_kg: e.target.value }))}
                         />
                       ) : (
-                        `${rec.quantity_kg?.toLocaleString()} kg`
+                        <><strong>{(rec.actual_weight_kg ?? rec.quantity_kg)?.toLocaleString()} kg</strong><br/><span className="sp-farmer-id">Net: {(rec.net_weight_kg ?? rec.quantity_kg)?.toLocaleString()} kg</span></>
                       )}
                     </td>
                     <td>
                       {isEditing ? (
-                        <input
-                          type="number"
-                          className="sp-input sp-input-sm"
-                          value={editData.total_price}
-                          onChange={e => setEditData(d => ({ ...d, total_price: e.target.value }))}
-                        />
+                        <div className="sp-quality-inputs">
+                          <input type="number" className="sp-input sp-input-xs" min="0" title="Deductions in kg" placeholder="Ded. kg" value={editData.deductions_kg}
+                            onChange={e => setEditData(d => ({ ...d, deductions_kg: e.target.value }))}/>
+                          <input type="number" className="sp-input sp-input-xs" min="0" max="100" step="0.1" title="Moisture percentage" placeholder="M %" value={editData.moisture_percent}
+                            onChange={e => setEditData(d => ({ ...d, moisture_percent: e.target.value }))}/>
+                          <input type="number" className="sp-input sp-input-xs" min="0" max="100" step="0.1" title="Impurity percentage" placeholder="I %" value={editData.impurity_percent}
+                            onChange={e => setEditData(d => ({ ...d, impurity_percent: e.target.value }))}/>
+                        </div>
+                      ) : (
+                        <span className="sp-quality-summary">M {rec.moisture_percent ?? '—'}% · I {rec.impurity_percent ?? '—'}%<br/>Deduction: {rec.deductions_kg ?? 0} kg · {rec.verified_by_name || 'Unverified'}</span>
+                      )}
+                    </td>
+                    <td>
+                      {isEditing ? (
+                        <input type="number" className="sp-input sp-input-sm" min="1" value={editData.rate_per_kg}
+                          onChange={e => setEditData(d => ({ ...d, rate_per_kg: e.target.value }))}/>
+                      ) : (
+                        `₹${rec.rate_per_kg?.toLocaleString() || '—'}/kg`
+                      )}
+                    </td>
+                    <td>
+                      {isEditing ? (
+                        <strong className="spay-amount">₹{payable.toLocaleString()}</strong>
                       ) : (
                         `₹${rec.total_price?.toLocaleString()}`
                       )}

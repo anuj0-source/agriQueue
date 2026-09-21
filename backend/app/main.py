@@ -1,5 +1,7 @@
 from contextlib import asynccontextmanager
+from datetime import timedelta
 from fastapi import FastAPI
+from sqlalchemy import select
 from fastapi.middleware.cors import CORSMiddleware
 from routes.auth import router as auth_router
 from routes.dashboard import router as dashboard_router
@@ -18,12 +20,37 @@ import models.produce
 import models.admin
 import models.staff
 import models.push_subscription
+import models.procurement
+import models.payment
+import models.payment_profile
+from models.booking import Booking
+from models.payment import Payment
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+
+    # The app predates explicit payment records. Create safe, editable payment
+    # instructions for legacy completed bookings the first time this version runs.
+    async with AsyncSessionLocal() as session:
+        completed_bookings = (await session.scalars(
+            select(Booking).where(Booking.status == "Completed")
+        )).all()
+        existing_booking_ids = set((await session.scalars(select(Payment.booking_id))).all())
+        for booking in completed_bookings:
+            if booking.id not in existing_booking_ids:
+                session.add(Payment(
+                    booking_id=booking.id,
+                    farmer_id=booking.farmer_id,
+                    procurement_center_id=booking.procurement_center_id,
+                    amount=booking.total_price,
+                    status="Processing",
+                    expected_settlement_date=booking.booked_at + timedelta(days=2),
+                    receipt_number=f"RCP-{booking.id:06d}",
+                ))
+        await session.commit()
     yield
     await engine.dispose()
 

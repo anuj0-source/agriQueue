@@ -1,6 +1,7 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { X, Bell, CheckCheck, Trash2, CheckCircle2, AlertTriangle, Info, Zap } from 'lucide-react'
 import { useNotifications } from '../context/NotificationContext'
+import { registerPushNotifications, checkNotificationStatus } from '../api'
 
 const TYPE_CONFIG = {
   success: {
@@ -48,6 +49,28 @@ function timeAgo(isoString) {
 export default function NotificationPanel() {
   const { notifications, panelOpen, clearAll, markRead, closePanel } = useNotifications()
   const panelRef = useRef(null)
+  const [pushStatus, setPushStatus] = useState(() => checkNotificationStatus())
+  const [enablingPush, setEnablingPush] = useState(false)
+  const [pushMessage, setPushMessage] = useState('')
+
+  const handleEnablePush = async () => {
+    setEnablingPush(true)
+    setPushMessage('')
+    try {
+      const res = await registerPushNotifications(true)
+      const current = checkNotificationStatus()
+      setPushStatus(current)
+      if (res?.success) {
+        setPushMessage('✓ Push notifications active!')
+      } else {
+        setPushMessage(res?.error || 'Could not enable notifications')
+      }
+    } catch (e) {
+      setPushMessage(e.message || 'Error enabling notifications')
+    } finally {
+      setEnablingPush(false)
+    }
+  }
 
   // Close on outside click
   useEffect(() => {
@@ -109,6 +132,25 @@ export default function NotificationPanel() {
             </button>
           </div>
         </div>
+
+        {/* Push Notification Enable Prompt when disabled */}
+        {pushStatus !== 'granted' && (
+          <div className="notif-push-banner">
+            <div className="notif-push-info">
+              <span className="notif-push-title">🔔 Instant Alerts Off</span>
+              <span className="notif-push-desc">Enable alerts to get instant notifications when payment is credited.</span>
+            </div>
+            <button
+              type="button"
+              className="notif-push-btn enable"
+              onClick={handleEnablePush}
+              disabled={enablingPush}
+            >
+              {enablingPush ? 'Enabling…' : 'Enable'}
+            </button>
+          </div>
+        )}
+        {pushMessage && <div className="notif-push-feedback">{pushMessage}</div>}
 
         {/* Notification list */}
         <div className="notif-list">

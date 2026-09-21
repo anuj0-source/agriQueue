@@ -39,7 +39,21 @@ self.addEventListener('push', function (event) {
     };
 
     event.waitUntil(
-        self.registration.showNotification(title, options)
+        Promise.all([
+            self.registration.showNotification(title, options),
+            self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+                for (const client of clientList) {
+                    client.postMessage({
+                        type: 'PUSH_NOTIFICATION_RECEIVED',
+                        notification: {
+                            title: title,
+                            message: options.body,
+                            type: 'success'
+                        }
+                    });
+                }
+            })
+        ])
     );
 });
 
