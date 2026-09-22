@@ -146,6 +146,40 @@ export async function createBooking(payload) {
   return data
 }
 
+export async function predictWaitTime(payload) {
+  try {
+    const response = await fetch(`${API_BASE_URL}/queue/predict-wait`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    })
+    const data = await response.json()
+    if (!response.ok) {
+      throw new Error(data.detail || data.message || 'Failed to predict wait time')
+    }
+    return data
+  } catch (err) {
+    console.warn('[AgriQueue] Wait time prediction API failed, using client heuristic:', err)
+    // Safe client-side heuristic fallback
+    const qty = payload.quantity_kg || 1000
+    const est = Math.max(5, Math.round(15 + (qty / 1000) * 3))
+    return {
+      estimated_wait_minutes: est,
+      wait_range: { min: Math.max(3, est - 3), max: est + 4, formatted: `${Math.max(3, est - 3)} - ${est + 4} mins` },
+      congestion_level: 'Moderate',
+      congestion_color: '#f59e0b',
+      factors: ['Standard queue check', `${qty} kg produce volume`],
+      active_counters: 2,
+      farmers_ahead: 1,
+      model_version: 'fallback-heuristic'
+    }
+  }
+}
+
+
 export async function getMyBookings() {
   const response = await fetch(`${API_BASE_URL}/bookings/my`, {
     method: 'GET',

@@ -1,0 +1,55 @@
+{
+  "best_model_name": "Hist_Gradient_Boosting",
+  "metrics": {
+    "r2": 0.9881,
+    "mae": 2.93,
+    "rmse": 3.91,
+    "mape": 8.1,
+    "fit_time_seconds": 0.84
+  },
+  "all_models_compared": {
+    "Ridge_Regression": {
+      "r2": 0.8192,
+      "mae": 10.39,
+      "rmse": 15.24,
+      "mape": 26.51,
+      "fit_time_seconds": 0.12
+    },
+    "Random_Forest": {
+      "r2": 0.9626,
+      "mae": 4.73,
+      "rmse": 6.93,
+      "mape": 11.1,
+      "fit_time_seconds": 1.35
+    },
+    "Hist_Gradient_Boosting": {
+      "r2": 0.9881,
+      "mae": 2.93,
+      "rmse": 3.91,
+      "mape": 8.1,
+      "fit_time_seconds": 0.84
+    }
+  },
+  "dataset_total_samples": 35000,
+  "train_samples": 28000,
+  "test_samples": 7000,
+  "numerical_features": [
+    "farmers_ahead",
+    "total_qty_ahead_kg",
+    "quantity_kg",
+    "active_counters",
+    "staff_present",
+    "center_daily_capacity_quintals",
+    "slot_hour",
+    "day_of_week",
+    "is_harvest_peak_season"
+  ],
+  "categorical_features": [
+    "crop_type",
+    "produce_quality_grade",
+    "vehicle_type",
+    "weather_condition"
+  ],
+  "top_feature_importances": {},
+  "timestamp": "2026-09-21 16:23:08"
+}

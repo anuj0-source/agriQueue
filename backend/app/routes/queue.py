@@ -11,10 +11,24 @@ from isAuthenticated import isAuthenticated
 from models.procurement_center import ProcurementCenter
 from models.booking import Booking
 
+from pydantic import BaseModel
+from ml.predictor import predict_queue_wait_time
+
 router = APIRouter(
     prefix="/queue",
     tags=["queue"]
 )
+
+
+class PredictWaitRequest(BaseModel):
+    procurement_center_id: int
+    slot_id: Optional[int] = None
+    slot_time: Optional[str] = "10:00 AM - 11:00 AM"
+    booking_date: Optional[str] = None
+    produce: Optional[str] = "Wheat"
+    quantity_kg: Optional[int] = 1000
+    produce_type: Optional[str] = "Standard Grade"
+
 
 
 async def _build_farmer_queue(center_id: int, user_id: Optional[int], db: AsyncSession) -> dict:
@@ -99,10 +113,17 @@ async def _build_farmer_queue(center_id: int, user_id: Optional[int], db: AsyncS
     if user_booking:
         if user_booking.status == "Serving":
             wait_str = "Your turn now!"
-        elif ahead_count == 0:
-            wait_str = "~5 min (you're next)"
         else:
-            wait_str = f"~{ahead_count * 10} min"
+            pred = predict_queue_wait_time(
+                center_name=center.name,
+                daily_capacity=center.daily_capacity,
+                produce=user_booking.produce,
+                quantity_kg=user_booking.quantity_kg,
+                produce_type=user_booking.produce_type,
+                farmers_ahead=ahead_count
+            )
+            w_min = pred["estimated_wait_minutes"]
+            wait_str = f"~{w_min} min (you're next)" if ahead_count == 0 else f"~{w_min} min"
 
     return {
         "center": center.name,
@@ -116,6 +137,50 @@ async def _build_farmer_queue(center_id: int, user_id: Optional[int], db: AsyncS
         "estimatedWait": wait_str,
         "queue": queue_list,
     }
+
+
+# ── POST /queue/predict-wait  (AI Wait Time Estimation) ───────────────────────
+@router.post("/predict-wait")
+async def predict_wait(
+    payload: PredictWaitRequest,
+    db: AsyncSession = Depends(get_db)
+):
+    center = await db.scalar(
+        select(ProcurementCenter).where(ProcurementCenter.id == payload.procurement_center_id)
+    )
+    if not center:
+        center = await db.scalar(select(ProcurementCenter).limit(1))
+    
+    center_name = center.name if center else "Procurement Center"
+    daily_cap = center.daily_capacity if center else 2000
+
+    # Target date
+    target_date = date.today()
+    if payload.booking_date:
+        try:
+            target_date = datetime.strptime(payload.booking_date.split("T")[0], "%Y-%m-%d").date()
+        except Exception:
+            pass
+
+    ahead_count = await db.scalar(
+        select(func.count(Booking.id)).where(
+            Booking.procurement_center_id == payload.procurement_center_id,
+            func.date(Booking.booked_at) == target_date,
+            Booking.status.in_(["Waiting", "Confirmed"])
+        )
+    ) or 0
+
+    prediction = predict_queue_wait_time(
+        center_name=center_name,
+        daily_capacity=daily_cap,
+        slot_time=payload.slot_time,
+        booking_date=payload.booking_date,
+        produce=payload.produce,
+        quantity_kg=payload.quantity_kg,
+        produce_type=payload.produce_type,
+        farmers_ahead=ahead_count
+    )
+    return prediction
 
 
 # ── GET /queue/{center_id}  (regular HTTP) ─────────────────────────────────────

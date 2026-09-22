@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import {
+  Activity,
   Building2,
   Calendar as CalendarIcon,
   Check,
@@ -10,13 +11,16 @@ import {
   Loader2,
   Scale,
   Search,
+  Sparkles,
   Sprout,
+  Timer,
+  TrendingUp,
 } from 'lucide-react'
 import FarmerLayout from '../components/FarmerLayout'
 import Brand from '../components/Brand'
 import AuthModal from '../components/AuthModal'
 import { CenterCardsSkeleton } from '../components/Skeletons'
-import { getProcurementCenters, getCenterSlots, createBooking } from '../api'
+import { getProcurementCenters, getCenterSlots, createBooking, predictWaitTime } from '../api'
 import { PROCUREMENT_CENTERS, TIME_SLOTS } from '../data/farmer-data'
 
 export default function BookSlotPage() {
@@ -35,6 +39,9 @@ export default function BookSlotPage() {
   const [confirmedBooking, setConfirmedBooking] = useState(null)
   const [showAuthModal, setShowAuthModal] = useState(false)
   const [bookingError, setBookingError] = useState('')
+  const [predictedWait, setPredictedWait] = useState(null)
+  const [loadingWaitPrediction, setLoadingWaitPrediction] = useState(false)
+  const [slotPredictions, setSlotPredictions] = useState({})
 
   useEffect(() => {
     async function loadCenters() {
@@ -98,6 +105,134 @@ export default function BookSlotPage() {
   const currentMonth = today.getMonth()
   const currentYear = today.getFullYear()
   const todayDate = today.getDate()
+
+  const calculateExpectedTurnTime = (slotTime, waitMins, targetDate) => {
+    if (!slotTime) return ''
+    const match = slotTime.match(/(\d{1,2}):(\d{2})\s*(AM|PM)?/i)
+    if (!match) return ''
+    let slotH = parseInt(match[1], 10)
+    let slotM = parseInt(match[2], 10)
+    const period = match[3]?.toUpperCase()
+    if (period === 'PM' && slotH !== 12) slotH += 12
+    if (period === 'AM' && slotH === 12) slotH = 0
+
+    const slotStartMinutes = slotH * 60 + slotM
+
+    const now = new Date()
+    const currentH = now.getHours()
+    const currentM = now.getMinutes()
+    const currentMinutes = currentH * 60 + currentM
+
+    // Check if target booking date is today
+    let isForToday = true
+    if (targetDate !== undefined && targetDate !== null) {
+      if (typeof targetDate === 'number') {
+        isForToday = targetDate === todayDate
+      } else if (typeof targetDate === 'string') {
+        const todayYMD = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+        isForToday = targetDate.includes(todayYMD) || targetDate.includes(`${now.getDate()} `)
+      }
+    }
+
+    // Baseline turn time: If today and current time is already inside/past slot start, start from current time
+    let baseMinutes = slotStartMinutes
+    if (isForToday && currentMinutes >= slotStartMinutes) {
+      baseMinutes = currentMinutes
+    }
+
+    const wait = Number(waitMins) || 0
+    if (wait === 0) {
+      if (isForToday && currentMinutes >= slotStartMinutes) {
+        const displayH = currentH % 12 === 0 ? 12 : currentH % 12
+        const displayM = String(currentM).padStart(2, '0')
+        const p = currentH >= 12 ? 'PM' : 'AM'
+        return `Immediate (Now ~${displayH}:${displayM} ${p})`
+      } else {
+        const displayH = slotH % 12 === 0 ? 12 : slotH % 12
+        const displayM = String(slotM).padStart(2, '0')
+        const p = slotH >= 12 ? 'PM' : 'AM'
+        return `${displayH}:${displayM} ${p} (Direct Entry)`
+      }
+    }
+
+    const totalMinutes = baseMinutes + wait
+    const turnH = Math.floor(totalMinutes / 60) % 24
+    const turnM = totalMinutes % 60
+    const turnPeriod = turnH >= 12 ? 'PM' : 'AM'
+    const displayH = turnH % 12 === 0 ? 12 : turnH % 12
+    const displayM = String(turnM).padStart(2, '0')
+    return `${displayH}:${displayM} ${turnPeriod}`
+  }
+
+  // Fetch real-time AI wait time prediction for the chosen slot, crop & quantity
+  useEffect(() => {
+    if (!selectedCenter) return
+    let isMounted = true
+
+    async function fetchWaitPrediction() {
+      setLoadingWaitPrediction(true)
+      try {
+        const payload = {
+          procurement_center_id: selectedCenter.id,
+          slot_id: selectedSlot?.id ? parseInt(selectedSlot.id, 10) : 1,
+          slot_time: selectedSlot?.time || '10:00 AM - 11:00 AM',
+          booking_date: `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(selectedDate).padStart(2, '0')}`,
+          produce: selectedProduce,
+          quantity_kg: Math.max(1, parseInt(quantityKg, 10) || 1000),
+          produce_type: 'Standard Grade',
+        }
+        const data = await predictWaitTime(payload)
+        if (isMounted) {
+          setPredictedWait(data)
+        }
+      } catch (err) {
+        console.error('Wait prediction error:', err)
+      } finally {
+        if (isMounted) {
+          setLoadingWaitPrediction(false)
+        }
+      }
+    }
+
+    const timer = setTimeout(fetchWaitPrediction, 300)
+    return () => {
+      isMounted = false
+      clearTimeout(timer)
+    }
+  }, [selectedCenter, selectedSlot, selectedDate, selectedProduce, quantityKg])
+
+  // Batch predict wait times for slots in step 2
+  useEffect(() => {
+    if (!selectedCenter || !slotsList.length) return
+    let isMounted = true
+
+    async function fetchSlotEstimates() {
+      const preds = {}
+      for (const slot of slotsList.slice(0, 8)) {
+        try {
+          const res = await predictWaitTime({
+            procurement_center_id: selectedCenter.id,
+            slot_id: slot.id,
+            slot_time: slot.time,
+            booking_date: `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(selectedDate).padStart(2, '0')}`,
+            produce: selectedProduce,
+            quantity_kg: 1000,
+            produce_type: 'Standard Grade',
+          })
+          if (res?.estimated_wait_minutes) {
+            preds[slot.id] = res.estimated_wait_minutes
+          }
+        } catch (_) {}
+      }
+      if (isMounted) {
+        setSlotPredictions(preds)
+      }
+    }
+
+    fetchSlotEstimates()
+    return () => { isMounted = false }
+  }, [selectedCenter, selectedDate, slotsList])
+
   
   const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate()
   const firstDayOfMonth = new Date(currentYear, currentMonth, 1).getDay()
@@ -534,6 +669,32 @@ export default function BookSlotPage() {
                 </span>
               </div>
 
+              {/* AI Estimated Wait Banner */}
+              <div className="success-ai-wait-banner">
+                <div className="success-wait-col">
+                  <span className="success-wait-meta-title">
+                    <Sparkles size={12} className="sparkle-gold" />
+                    AI Estimated Queue Wait
+                  </span>
+                  <strong className="success-wait-meta-val">
+                    {(confirmedBooking?.estimated_wait_time ?? predictedWait?.estimated_wait_minutes) === 0
+                      ? '0 mins (Direct Entry)'
+                      : `~${confirmedBooking?.estimated_wait_time ?? predictedWait?.estimated_wait_minutes ?? 0} mins`}
+                  </strong>
+                </div>
+                <div className="success-wait-divider" />
+                <div className="success-wait-col">
+                  <span className="success-wait-meta-title">Expected Turn Window</span>
+                  <strong className="success-wait-meta-val" style={{ color: 'var(--primary)' }}>
+                    {calculateExpectedTurnTime(
+                      confirmedBooking?.slot_time || selectedSlot?.time,
+                      confirmedBooking?.estimated_wait_time ?? predictedWait?.estimated_wait_minutes ?? 0,
+                      confirmedBooking?.booked_at || confirmedBooking?.formatted_date || selectedDate
+                    ) || 'Immediate Entry'}
+                  </strong>
+                </div>
+              </div>
+
               {/* Specs Summary List */}
               <div className="success-specs-list">
                 <div className="spec-item">
@@ -545,13 +706,21 @@ export default function BookSlotPage() {
                 <div className="spec-item">
                   <CalendarIcon size={16} className="spec-icon" />
                   <span className="spec-text">
-                    {confirmedBooking?.formatted_date || `${selectedDate} September 2025`}
+                    {confirmedBooking?.formatted_date || `${selectedDate} ${monthName} ${currentYear}`}
                   </span>
                 </div>
                 <div className="spec-item">
                   <Clock size={16} className="spec-icon" />
                   <span className="spec-text">
-                    {confirmedBooking?.slot_time || selectedSlot.time}
+                    {confirmedBooking?.slot_time || selectedSlot?.time}
+                  </span>
+                </div>
+                <div className="spec-item">
+                  <Timer size={16} className="spec-icon" />
+                  <span className="spec-text">
+                    Est. Wait: {(confirmedBooking?.estimated_wait_time ?? predictedWait?.estimated_wait_minutes) === 0
+                      ? '0 mins (Direct Entry)'
+                      : `~${confirmedBooking?.estimated_wait_time ?? predictedWait?.estimated_wait_minutes ?? 0} mins`}
                   </span>
                 </div>
                 <div className="spec-item">

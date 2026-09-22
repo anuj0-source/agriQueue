@@ -2031,6 +2031,313 @@ input::-ms-clear {
   margin-top: 4px;
 }
 
+/* ── AI Queue Wait Prediction Component Styles ── */
+.slot-badges-cluster {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.slot-ai-wait-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(16, 185, 129, 0.12);
+  color: #059669;
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  letter-spacing: -0.01em;
+}
+
+.ai-sparkle-inline {
+  color: #10b981;
+  animation: subtleSpin 4s linear infinite;
+}
+
+.selected-slot-ai-preview {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 14px;
+  padding: 12px 16px;
+  background: linear-gradient(135deg, rgba(236, 253, 245, 0.8) 0%, rgba(240, 253, 250, 0.6) 100%);
+  border: 1px solid rgba(16, 185, 129, 0.28);
+  border-radius: 10px;
+  box-shadow: 0 2px 8px -2px rgba(16, 185, 129, 0.08);
+}
+
+.slot-preview-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.sparkle-gold {
+  color: #10b981;
+}
+
+.slot-preview-headline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.slot-preview-title {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.slot-preview-val {
+  font-size: 13.5px;
+  font-weight: 800;
+  color: #065f46;
+}
+
+.slot-preview-turn {
+  display: block;
+  font-size: 11.5px;
+  color: #6b7280;
+  margin-top: 1px;
+}
+
+.slot-preview-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 999px;
+}
+
+/* ── Step 3: AI Wait Prediction Card ── */
+.ai-wait-prediction-card {
+  max-width: 680px;
+  margin-top: 18px;
+  padding: 22px 24px;
+  background: linear-gradient(145deg, #ffffff 0%, #f7fbf9 100%);
+  border: 1.5px solid rgba(16, 185, 129, 0.25);
+  border-radius: 14px;
+  box-shadow: 0 10px 25px -5px rgba(16, 185, 129, 0.08), 0 4px 6px -2px rgba(0, 0, 0, 0.03);
+  position: relative;
+  overflow: hidden;
+}
+
+.ai-wait-prediction-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #10b981, #059669, #34d399, #10b981);
+  background-size: 200% 100%;
+  animation: gradientFlow 6s ease infinite;
+}
+
+@keyframes gradientFlow {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.ai-wait-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.ai-wait-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: #065f46;
+  background: rgba(16, 185, 129, 0.12);
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+.congestion-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid;
+}
+
+.ai-wait-hero-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #f0fdf4;
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  border-radius: 12px;
+  padding: 16px 20px;
+  margin-bottom: 14px;
+}
+
+.ai-wait-time-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.ai-wait-main-val {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.wait-number {
+  font-size: 38px;
+  font-weight: 900;
+  color: #065f46;
+  line-height: 1;
+  font-family: 'Manrope', sans-serif;
+  letter-spacing: -0.03em;
+}
+
+.wait-unit {
+  font-size: 16px;
+  font-weight: 700;
+  color: #059669;
+}
+
+.wait-loading-shimmer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #059669;
+}
+
+.ai-wait-subtext {
+  font-size: 12px;
+  color: #4b5563;
+  margin-top: 4px;
+  font-weight: 500;
+}
+
+.ai-turn-window-box {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  text-align: right;
+}
+
+.turn-label {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.turn-time {
+  font-size: 19px;
+  font-weight: 800;
+  color: #111827;
+  font-family: 'Manrope', sans-serif;
+  margin: 2px 0;
+}
+
+.turn-sub {
+  font-size: 11px;
+  color: #6b7280;
+}
+
+.ai-factors-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.ai-factor-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  padding: 5px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #374151;
+}
+
+.chip-bullet {
+  color: #10b981;
+  font-weight: 900;
+}
+
+.ai-model-attribution {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: #6b7280;
+  border-top: 1px dashed #e5e7eb;
+  padding-top: 10px;
+  margin-top: 4px;
+}
+
+/* ── Step 4: AI Estimated Wait Banner ── */
+.success-ai-wait-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  background: linear-gradient(135deg, #ecfdf5 0%, #f0fdf4 100%);
+  border: 1.5px solid rgba(16, 185, 129, 0.3);
+  border-radius: 12px;
+  padding: 14px 18px;
+  margin: 16px auto 20px;
+  max-width: 440px;
+  box-shadow: 0 4px 12px -2px rgba(16, 185, 129, 0.1);
+}
+
+.success-wait-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.success-wait-meta-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #4b5563;
+  margin-bottom: 2px;
+}
+
+.success-wait-meta-val {
+  font-size: 18px;
+  font-weight: 800;
+  color: #065f46;
+  font-family: 'Manrope', sans-serif;
+}
+
+.success-wait-divider {
+  width: 1px;
+  height: 36px;
+  background: rgba(16, 185, 129, 0.25);
+}
+
+
 /* ── Step 4: Success ── */
 .success-card {
   max-width: 520px;

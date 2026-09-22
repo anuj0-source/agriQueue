@@ -17,6 +17,7 @@ router = APIRouter(
 
 from models.produce import Produce
 from models.slot import Slot
+from ml.predictor import predict_queue_wait_time
 
 SLOT_TIME_MAP = {
     1: "09:00 AM - 10:00 AM",
@@ -90,15 +91,6 @@ async def create_booking(
             # Update the running count on the slot record
             slot.booked_count = booked_today_qty + quantity_kg
 
-    # Active queue ahead calculation
-    ahead_count = await db.scalar(
-        select(func.count(Booking.id)).where(
-            Booking.procurement_center_id == data.procurement_center_id,
-            Booking.status.in_(["Waiting", "Confirmed"])
-        )
-    ) or 0
-    estimated_wait = max(10, (ahead_count + 1) * 12)
-
     booked_dt = datetime.now()
     if data.booking_date:
         try:
@@ -106,6 +98,29 @@ async def create_booking(
             booked_dt = parsed.replace(tzinfo=None)
         except Exception:
             pass
+
+    # Active queue ahead calculation for target date
+    target_date = booked_dt.date()
+    ahead_count = await db.scalar(
+        select(func.count(Booking.id)).where(
+            Booking.procurement_center_id == data.procurement_center_id,
+            func.date(Booking.booked_at) == target_date,
+            Booking.status.in_(["Waiting", "Confirmed"])
+        )
+    ) or 0
+
+    # ML-driven queue wait time prediction
+    ml_prediction = predict_queue_wait_time(
+        center_name=center.name,
+        daily_capacity=center.daily_capacity,
+        slot_time=data.slot_time or (SLOT_TIME_MAP.get(data.slot_id) if data.slot_id else "10:00 AM - 11:00 AM"),
+        booking_date=data.booking_date,
+        produce=data.produce,
+        quantity_kg=quantity_kg,
+        produce_type=data.produce_type,
+        farmers_ahead=ahead_count
+    )
+    estimated_wait = ml_prediction["estimated_wait_minutes"]
 
     booking = Booking(
         farmer_id=user_id,
