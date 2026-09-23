@@ -4059,6 +4059,13 @@ input:-webkit-autofill:active {
   z-index: 20;
 }
 
+.admin-topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
 .admin-topbar-title {
   font-size: 22px;
   font-weight: 700;
@@ -8292,8 +8299,16 @@ input:-webkit-autofill:active {
   padding: 14px 20px;
   display: flex;
   align-items: center;
-  gap: 4px;
+  justify-content: space-between;
+  gap: 12px;
   box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+  flex-wrap: wrap;
+}
+
+.pc-stats-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
   flex-wrap: wrap;
 }
 
@@ -8884,12 +8899,137 @@ input:-webkit-autofill:active {
 
 /* Responsive */
 @media (max-width: 768px) {
-  .pc-stats-bar  { gap: 0; }
-  .pc-stat       { padding: 4px 8px; }
-  .pc-grid       { grid-template-columns: 1fr; }
-  .pc-toolbar    { flex-direction: column; align-items: stretch; }
-  .pc-toolbar-right { justify-content: flex-end; }
+  .pc-page {
+    gap: 12px;
+  }
+
+  /* Stats Card on Mobile */
+  .pc-stats-bar {
+    display: flex;
+    flex-direction: column;
+    padding: 14px;
+    gap: 12px;
+    border-radius: 14px;
+    box-sizing: border-box;
+  }
+  .pc-stats-group {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+    width: 100%;
+  }
+  .pc-stat-divider {
+    display: none;
+  }
+  .pc-stat {
+    padding: 10px 10px;
+    background: #f8fafc;
+    border: 1px solid #edf2f7;
+    border-radius: 12px;
+    gap: 10px;
+    align-items: center;
+    min-width: 0;
+  }
+  .pc-stat-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    flex-shrink: 0;
+  }
+  .pc-stat-val {
+    font-size: 19px;
+    font-weight: 800;
+  }
+  .pc-stat-label {
+    font-size: 10px;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .pc-add-btn {
+    width: 100%;
+    margin-left: 0 !important;
+    justify-content: center;
+    padding: 12px 18px;
+    font-size: 14px;
+    box-sizing: border-box;
+  }
+
+  /* Search & Filter Toolbar on Mobile */
+  .pc-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+  .pc-search-box {
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+  }
+  .pc-toolbar-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    justify-content: flex-start;
+  }
+  .pc-filter-group {
+    flex: 1;
+    min-width: 0;
+    padding: 0 10px;
+    height: 42px;
+    box-sizing: border-box;
+  }
+  .pc-filter-group select {
+    width: 100%;
+    font-size: 12.5px;
+    text-overflow: ellipsis;
+  }
+  .pc-view-toggle {
+    flex-shrink: 0;
+  }
+
+  /* Cards Grid on Mobile */
+  .pc-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  /* Empty State on Mobile */
+  .pc-empty {
+    padding: 44px 20px;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    box-sizing: border-box;
+  }
+  .pc-empty .pc-add-btn {
+    width: auto;
+    min-width: 160px;
+  }
 }
+
+@media (max-width: 380px) {
+  .pc-stats-group {
+    gap: 6px;
+  }
+  .pc-stat {
+    padding: 8px 8px;
+    gap: 8px;
+  }
+  .pc-stat-icon {
+    width: 32px;
+    height: 32px;
+  }
+  .pc-stat-val {
+    font-size: 17px;
+  }
+  .pc-stat-label {
+    font-size: 9.5px;
+  }
+}
+
 
 /* Custom Confirm Overlay */
 .custom-confirm-overlay {

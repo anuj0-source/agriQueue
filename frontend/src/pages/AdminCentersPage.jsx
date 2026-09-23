@@ -59,51 +59,54 @@ export default function AdminCentersPage() {
 
         {/* ── Summary Stats Bar ── */}
         <div className="pc-stats-bar">
-          <div className="pc-stat">
-            <div className="pc-stat-icon" style={{ background: '#eff6ff' }}>
-              <Building2 size={17} style={{ color: '#3b82f6' }}/>
+          <div className="pc-stats-group">
+            <div className="pc-stat">
+              <div className="pc-stat-icon" style={{ background: '#eff6ff' }}>
+                <Building2 size={17} style={{ color: '#3b82f6' }}/>
+              </div>
+              <div>
+                <div className="pc-stat-val">{totalCenters}</div>
+                <div className="pc-stat-label">Total Centers</div>
+              </div>
             </div>
-            <div>
-              <div className="pc-stat-val">{totalCenters}</div>
-              <div className="pc-stat-label">Total Centers</div>
+            <div className="pc-stat-divider"/>
+            <div className="pc-stat">
+              <div className="pc-stat-icon" style={{ background: '#f0fdf4' }}>
+                <CheckCircle size={17} style={{ color: '#22c55e' }}/>
+              </div>
+              <div>
+                <div className="pc-stat-val">{activeCenters}</div>
+                <div className="pc-stat-label">Active</div>
+              </div>
             </div>
-          </div>
-          <div className="pc-stat-divider"/>
-          <div className="pc-stat">
-            <div className="pc-stat-icon" style={{ background: '#f0fdf4' }}>
-              <CheckCircle size={17} style={{ color: '#22c55e' }}/>
+            <div className="pc-stat-divider"/>
+            <div className="pc-stat">
+              <div className="pc-stat-icon" style={{ background: '#fff7ed' }}>
+                <XCircle size={17} style={{ color: '#f97316' }}/>
+              </div>
+              <div>
+                <div className="pc-stat-val">{totalCenters - activeCenters}</div>
+                <div className="pc-stat-label">Inactive</div>
+              </div>
             </div>
-            <div>
-              <div className="pc-stat-val">{activeCenters}</div>
-              <div className="pc-stat-label">Active</div>
-            </div>
-          </div>
-          <div className="pc-stat-divider"/>
-          <div className="pc-stat">
-            <div className="pc-stat-icon" style={{ background: '#fff7ed' }}>
-              <XCircle size={17} style={{ color: '#f97316' }}/>
-            </div>
-            <div>
-              <div className="pc-stat-val">{totalCenters - activeCenters}</div>
-              <div className="pc-stat-label">Inactive</div>
-            </div>
-          </div>
-          <div className="pc-stat-divider"/>
-          <div className="pc-stat">
-            <div className="pc-stat-icon" style={{ background: '#fdf4ff' }}>
-              <TrendingUp size={17} style={{ color: '#a855f7' }}/>
-            </div>
-            <div>
-              <div className="pc-stat-val">{avgUtil}%</div>
-              <div className="pc-stat-label">Avg. Utilization</div>
+            <div className="pc-stat-divider"/>
+            <div className="pc-stat">
+              <div className="pc-stat-icon" style={{ background: '#fdf4ff' }}>
+                <TrendingUp size={17} style={{ color: '#a855f7' }}/>
+              </div>
+              <div>
+                <div className="pc-stat-val">{avgUtil}%</div>
+                <div className="pc-stat-label">Avg. Utilization</div>
+              </div>
             </div>
           </div>
 
-          {/* Add Center — pushed right */}
-          <a href="/admin/centers/new" className="pc-add-btn" style={{ marginLeft: 'auto' }}>
+          {/* Add Center */}
+          <a href="/admin/centers/new" className="pc-add-btn">
             <Plus size={16}/> Add Center
           </a>
         </div>
+
 
         {/* ── Toolbar ── */}
         <div className="pc-toolbar">
