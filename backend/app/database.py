@@ -16,10 +16,20 @@ DATABASE_URL = getenv("DATABASE_URL", "").strip()
 if not DATABASE_URL:
     raise RuntimeError(
         "DATABASE_URL environment variable is missing or empty. "
-        "Please check your backend/app/.env file."
+        "Please check your backend/app/.env file or deployment environment variables."
     )
+
+# Normalize localhost to 127.0.0.1 for asyncpg compatibility
 if "localhost" in DATABASE_URL:
     DATABASE_URL = DATABASE_URL.replace("localhost", "127.0.0.1")
+
+# Standardize dialect and async driver for PostgreSQL (Render, Supabase, Neon, etc.)
+if DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql+asyncpg://", 1)
+elif DATABASE_URL.startswith("postgres+asyncpg://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres+asyncpg://", "postgresql+asyncpg://", 1)
+elif DATABASE_URL.startswith("postgresql://") and not DATABASE_URL.startswith("postgresql+asyncpg://"):
+    DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://", 1)
 
 engine = create_async_engine(
     DATABASE_URL,
