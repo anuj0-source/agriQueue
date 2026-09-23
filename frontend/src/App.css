@@ -11876,17 +11876,75 @@ input:-webkit-autofill:active {
   }
 }
 
-@media (max-width: 520px) {
+/* ── Mobile Responsive Floating Agent FAB & Layout ── */
+@media (max-width: 768px) {
   .agri-agent-dock {
     bottom: 20px;
     right: 20px;
   }
+
+  .agri-agent-fab {
+    width: 52px;
+    height: 52px;
+    padding: 0;
+    border-radius: 50%;
+    justify-content: center;
+    align-items: center;
+    gap: 0;
+    box-shadow: 0 10px 24px -2px rgba(6, 95, 70, 0.45), 0 3px 8px -1px rgba(0, 0, 0, 0.16);
+  }
+
+  .agri-agent-fab .fab-label,
+  .agri-agent-fab .fab-kbd-badge {
+    display: none !important;
+  }
+
+  .fab-glow-ring {
+    border-radius: 50%;
+  }
+
+  .fab-icon-wrap {
+    transform: scale(1.1);
+  }
+
+  /* Add bottom clearance so floating FAB never obscures bottom action buttons */
+  .portal-content-body,
+  .dashboard-container,
+  .live-queue-container,
+  .procurement-history-container,
+  .payment-status-container,
+  .profile-container,
+  .book-slot-container,
+  .staff-queue-container,
+  .staff-procurement-container,
+  .staff-payments-container {
+    padding-bottom: 96px !important;
+  }
+}
+
+@media (max-width: 520px) {
+  .agri-agent-dock {
+    bottom: 16px;
+    right: 16px;
+  }
+
+  .agri-agent-fab {
+    width: 48px;
+    height: 48px;
+  }
+
+  .agri-agent-fab .fab-bot-icon {
+    width: 20px;
+    height: 20px;
+  }
+
   .agri-agent-backdrop {
     padding: 0;
   }
+
   .agri-agent-modal {
     width: 100%;
-    height: 85vh;
+    height: 88vh;
     border-bottom-left-radius: 0;
     border-bottom-right-radius: 0;
   }
