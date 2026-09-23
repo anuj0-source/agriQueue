@@ -23,6 +23,7 @@ import StaffProcurementPage from './pages/StaffProcurementPage'
 import StaffPaymentsPage from './pages/StaffPaymentsPage'
 import StaffProfilePage from './pages/StaffProfilePage'
 import { NotificationProvider } from './context/NotificationContext'
+import CommandAgent from './components/CommandAgent'
 import { registerPushNotifications } from './api'
 import './App.css'
 
@@ -134,6 +135,7 @@ export default function App() {
     <AppErrorBoundary>
       <NotificationProvider>
         <Page />
+        <CommandAgent />
       </NotificationProvider>
     </AppErrorBoundary>
   )

@@ -13,6 +13,7 @@ import {
   Search,
   Sparkles,
   Sprout,
+  AlertCircle,
   Timer,
   TrendingUp,
 } from 'lucide-react'
@@ -78,8 +79,9 @@ export default function BookSlotPage() {
         const slots = await getCenterSlots(selectedCenter.id, dateStr)
         setSlotsList(slots)
         if (slots.length > 0) {
-          const firstAvailable = slots.find(s => s.status !== 'full')
-          setSelectedSlot(firstAvailable || slots[0])
+          // Only auto-select genuinely available, non-expired slots
+          const firstAvailable = slots.find(s => s.status === 'available')
+          setSelectedSlot(firstAvailable || null)
         } else {
           setSelectedSlot(null)
         }
@@ -333,6 +335,13 @@ export default function BookSlotPage() {
                           if (center.cropsList && center.cropsList.length > 0) {
                             setSelectedProduce(center.cropsList[0].name)
                           }
+                          // If current time is past mandi hours (>= 14:00) or center has 0 slots left today, advance to tomorrow
+                          const nowH = new Date().getHours()
+                          if (nowH >= 14 || (center.availableSlots !== undefined && center.availableSlots <= 0)) {
+                            setSelectedDate(todayDate + 1)
+                          } else {
+                            setSelectedDate(todayDate)
+                          }
                           setStep(2)
                         }}
                       >
@@ -420,6 +429,25 @@ export default function BookSlotPage() {
                   <span className="slots-selected-date">{monthName} {selectedDate}, {currentYear}</span>
                 </div>
 
+                {selectedDate === todayDate && slotsList.length > 0 && slotsList.every(s => s.status !== 'available') && (
+                  <div className="slots-ended-alert">
+                    <div className="alert-content">
+                      <AlertCircle size={18} className="alert-icon" />
+                      <div>
+                        <strong>Today's procurement slots have ended or are fully booked.</strong>
+                        <p>You can reserve an advance slot for tomorrow.</p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      className="switch-tomorrow-btn"
+                      onClick={() => setSelectedDate(todayDate + 1)}
+                    >
+                      Book Tomorrow
+                    </button>
+                  </div>
+                )}
+
                 <div className="slots-list">
                   {loadingSlots ? (
                     <div style={{ padding: '20px', textAlign: 'center', color: '#64748b' }}>Loading slots...</div>
@@ -429,10 +457,10 @@ export default function BookSlotPage() {
                     slotsList.map((slot) => {
                       const isSelected = selectedSlot?.id === slot.id
                       let isFull = slot.status === 'full'
+                      let isExpired = slot.status === 'expired'
                       
-                      let isPastSlot = false
-                      if (selectedDate === todayDate) {
-                        const timeParts = slot.time.split('-')[1].trim().match(/(\d+):(\d+)\s*(AM|PM)?/i)
+                      if (selectedDate === todayDate && !isExpired) {
+                        const timeParts = slot.time.split('-')[1]?.trim().match(/(\d+):(\d+)\s*(AM|PM)?/i)
                         if (timeParts) {
                           let hours = parseInt(timeParts[1], 10)
                           const isPM = timeParts[3] && timeParts[3].toUpperCase() === 'PM'
@@ -440,27 +468,28 @@ export default function BookSlotPage() {
                           if (!isPM && hours === 12) hours = 0
                           const slotTimeObj = new Date(currentYear, currentMonth, selectedDate, hours, parseInt(timeParts[2], 10))
                           if (slotTimeObj.getTime() < today.getTime()) {
-                            isPastSlot = true
-                            isFull = true // Treat past slots as full/disabled
+                            isExpired = true
                           }
                         }
                       }
 
+                      const isDisabled = isExpired || isFull
+
                       return (
                         <div
                           key={slot.id}
-                          className={`slot-item ${isSelected ? 'selected' : ''} ${isFull ? 'full' : ''}`}
+                          className={`slot-item ${isSelected ? 'selected' : ''} ${isExpired ? 'expired' : ''} ${isFull ? 'full' : ''}`}
                           onClick={() => {
-                            if (!isFull) setSelectedSlot(slot)
+                            if (!isDisabled) setSelectedSlot(slot)
                           }}
-                          style={isPastSlot ? { opacity: 0.6 } : {}}
+                          style={isDisabled ? { opacity: 0.55, cursor: 'not-allowed' } : {}}
                         >
                           <div className="slot-radio-wrap">
                             <span className={`slot-radio ${isSelected ? 'checked' : ''}`} />
                             <span className="slot-time-text">{slot.time}</span>
                           </div>
-                          <span className={`slot-availability-pill ${isFull ? 'pill-full' : 'pill-available'}`}>
-                            {isPastSlot ? 'Expired' : (isFull ? 'Full' : `${slot.available} quintals`)}
+                          <span className={`slot-availability-pill ${isExpired ? 'pill-expired' : (isFull ? 'pill-full' : 'pill-available')}`}>
+                            {isExpired ? 'Expired' : (isFull ? 'Full' : `${slot.available} quintals`)}
                           </span>
                         </div>
                       )
@@ -483,7 +512,7 @@ export default function BookSlotPage() {
                 type="button"
                 className="step-btn primary"
                 onClick={() => setStep(3)}
-                disabled={!selectedSlot}
+                disabled={!selectedSlot || selectedSlot.status === 'expired' || selectedSlot.status === 'full'}
               >
                 Continue
               </button>

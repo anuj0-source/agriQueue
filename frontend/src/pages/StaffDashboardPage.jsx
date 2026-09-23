@@ -5,6 +5,7 @@ import {
   TrendingUp, Sprout,
 } from 'lucide-react'
 import StaffLayout from '../components/StaffLayout'
+import CommandBar from '../components/CommandBar'
 import { getStaffDashboard } from '../api'
 
 const BAR_COLORS = ['#22c55e', '#16a34a', '#15803d', '#166534', '#14532d', '#052e16', '#bbf7d0']
@@ -90,6 +91,9 @@ export default function StaffDashboardPage() {
           ↻ Refresh
         </button>
       </div>
+
+      {/* AI Multilingual Voice & Text Command Bar */}
+      <CommandBar role="staff" />
 
       {/* Top 4 metric cards */}
       <div className="staff-metrics-grid">

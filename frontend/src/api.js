@@ -916,3 +916,46 @@ export async function sendTestPushNotification() {
   return data
 }
 
+/* ──────────────── AI Command Agent API ──────────────── */
+
+export async function sendAgentCommand(payload) {
+  const res = await fetch(`${API_BASE_URL}/agent/command`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+  const data = await res.json()
+  if (!res.ok) {
+    throw new Error(data.detail || data.message || 'Agent command execution failed')
+  }
+  return data
+}
+
+export async function getAgentSuggestions() {
+  try {
+    const res = await fetch(`${API_BASE_URL}/agent/suggestions`, {
+      method: 'GET',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+    })
+    if (!res.ok) return { role: 'farmer', suggestions: [] }
+    return await res.json()
+  } catch (err) {
+    console.warn('Failed to fetch agent suggestions:', err)
+    return { role: 'farmer', suggestions: [] }
+  }
+}
+
+export async function getAgentAuditLogs(limit = 50) {
+  const res = await fetch(`${API_BASE_URL}/agent/audit-logs?limit=${limit}`, {
+    method: 'GET',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+  })
+  const data = await res.json()
+  if (!res.ok) throw new Error(data.detail || 'Failed to fetch agent audit logs')
+  return data
+}
+
+

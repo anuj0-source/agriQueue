@@ -67,29 +67,8 @@ async def create_booking(
     quantity_kg = data.quantity_kg or 1000
     total_price = price_per_kg * quantity_kg
 
-    # Capacity Enforcement — count ACTUAL quantity booked today for this slot
-    if data.slot_id:
-        slot = await db.scalar(select(Slot).where(Slot.id == data.slot_id))
-        if slot and slot.capacity:
-            # Sum quantity already booked in this slot today (excluding cancelled)
-            from datetime import date
-            today = date.today()
-            booked_today_qty = await db.scalar(
-                select(func.coalesce(func.sum(Booking.quantity_kg), 0)).where(
-                    Booking.slot_id == data.slot_id,
-                    Booking.procurement_center_id == data.procurement_center_id,
-                    func.date(Booking.booked_at) == today,
-                    Booking.status.notin_(["Cancelled"])
-                )
-            ) or 0
-            available = slot.capacity - booked_today_qty
-            if quantity_kg > available:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Requested quantity exceeds slot capacity. Available: {max(0, available)} kg"
-                )
-            # Update the running count on the slot record
-            slot.booked_count = booked_today_qty + quantity_kg
+    from datetime import date
+    from time_utils import is_slot_expired
 
     booked_dt = datetime.now()
     if data.booking_date:
@@ -99,8 +78,48 @@ async def create_booking(
         except Exception:
             pass
 
-    # Active queue ahead calculation for target date
     target_date = booked_dt.date()
+    today_date = date.today()
+
+    if target_date < today_date:
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot book a slot for a past date. Please select an upcoming date."
+        )
+
+    # Capacity & Expiration Enforcement
+    if data.slot_id:
+        slot = await db.scalar(select(Slot).where(Slot.id == data.slot_id))
+        if not slot:
+            raise HTTPException(status_code=404, detail="Selected slot not found")
+
+        if is_slot_expired(target_date, slot.end_time):
+            raise HTTPException(
+                status_code=400,
+                detail="This time slot has already expired. Please choose an upcoming time slot."
+            )
+
+        if slot.capacity:
+            # Sum quantity already booked in this slot on target date (excluding cancelled)
+            booked_target_qty = await db.scalar(
+                select(func.coalesce(func.sum(Booking.quantity_kg), 0)).where(
+                    Booking.slot_id == data.slot_id,
+                    Booking.procurement_center_id == data.procurement_center_id,
+                    func.date(Booking.booked_at) == target_date,
+                    Booking.status.notin_(["Cancelled"])
+                )
+            ) or 0
+            available = slot.capacity - booked_target_qty
+            if quantity_kg > available:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Requested quantity exceeds slot capacity. Available: {max(0, available)} kg"
+                )
+            # Update running count if booking is for today
+            if target_date == today_date:
+                slot.booked_count = booked_target_qty + quantity_kg
+
+    # Active queue ahead calculation for target date
     ahead_count = await db.scalar(
         select(func.count(Booking.id)).where(
             Booking.procurement_center_id == data.procurement_center_id,

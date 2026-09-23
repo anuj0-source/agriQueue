@@ -1,4 +1,8 @@
+import os
 from dotenv import load_dotenv
+_env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
+if os.path.exists(_env_path):
+    load_dotenv(dotenv_path=_env_path)
 load_dotenv()
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
@@ -8,7 +12,9 @@ from sqlalchemy.ext.asyncio import (
 from sqlalchemy.orm import DeclarativeBase
 from os import getenv
 
-DATABASE_URL = getenv("DATABASE_URL")
+DATABASE_URL = getenv("DATABASE_URL", "")
+if "localhost" in DATABASE_URL:
+    DATABASE_URL = DATABASE_URL.replace("localhost", "127.0.0.1")
 
 engine = create_async_engine(
     DATABASE_URL,

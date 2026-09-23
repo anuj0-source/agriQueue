@@ -11,6 +11,7 @@ from routes.queue import router as queue_router
 from routes.admin import router as admin_router
 from routes.staff import router as staff_router
 from routes.notifications import router as notifications_router
+from routes.agent import router as agent_router
 from database import Base, engine, AsyncSessionLocal
 import models.farmer
 import models.procurement_center
@@ -23,6 +24,7 @@ import models.push_subscription
 import models.procurement
 import models.payment
 import models.payment_profile
+import models.agent_audit
 from models.booking import Booking
 from models.payment import Payment
 
@@ -78,6 +80,7 @@ app.include_router(queue_router)
 app.include_router(admin_router)
 app.include_router(staff_router)
 app.include_router(notifications_router)
+app.include_router(agent_router)
 
 @app.get("/")
 async def read_root():

@@ -124,12 +124,18 @@ async def get_center_slots(
         Booking.status != "Cancelled"
     )
     
+    from datetime import date as dt_date
+    from time_utils import is_slot_expired
+
+    target_date = dt_date.today()
     if date:
         try:
             target_date = datetime.fromisoformat(date.replace("Z", "+00:00")).date()
             query = query.where(func.date(Booking.booked_at) == target_date)
         except Exception:
             pass
+    else:
+        query = query.where(func.date(Booking.booked_at) == target_date)
             
     query = query.group_by(Booking.slot_id)
     res = await db.execute(query)
@@ -142,12 +148,22 @@ async def get_center_slots(
         booked_kg = slot_booked_kg.get(s.id, 0)
         available = max(0, s.capacity - booked_kg)
         available_quintals = int(available / 100)
+
+        # Enforce expiration check for past dates or today's passed slots
+        if is_slot_expired(target_date, s.end_time):
+            slot_status = "expired"
+            available_quintals = 0
+        elif available_quintals <= 0:
+            slot_status = "full"
+        else:
+            slot_status = "available"
+
         slots_data.append(
             SlotAvailability(
                 id=str(s.id),
                 time=f"{s.start_time} - {s.end_time}",
                 available=available_quintals,
-                status="available" if available_quintals > 0 else "full"
+                status=slot_status
             )
         )
     return slots_data

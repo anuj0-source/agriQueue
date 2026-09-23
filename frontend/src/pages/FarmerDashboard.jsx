@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Loader2, Calendar, Clock, MapPin, ArrowRight } from 'lucide-react'
 import CropIcon from '../components/CropIcon'
 import FarmerLayout from '../components/FarmerLayout'
+import CommandBar from '../components/CommandBar'
 import AuthModal from '../components/AuthModal'
 import BookingDetailModal from '../components/BookingDetailModal'
 import { DashboardSkeleton } from '../components/Skeletons'
@@ -114,6 +115,9 @@ export default function FarmerDashboard() {
             </div>
           )}
         </div>
+
+        {/* AI Multilingual Voice & Text Command Bar */}
+        <CommandBar role="farmer" />
 
         {/* Top 3 Summary Metrics */}
         <div className="dashboard-metrics-grid">
