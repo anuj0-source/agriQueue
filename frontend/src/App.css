@@ -9673,6 +9673,160 @@ input:-webkit-autofill:active {
   min-width: 700px; /* Force scroll on small screens */
 }
 
+/* ── Admin Users Mobile Accordion ── */
+.admin-mobile-user-list {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .admin-desktop-table-wrap {
+    display: none !important;
+  }
+  .admin-mobile-user-list {
+    display: flex !important;
+    flex-direction: column;
+    gap: 10px;
+    width: 100%;
+  }
+
+  .table-panel-card {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+  }
+
+  .admin-mobile-user-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .admin-mobile-user-card.expanded {
+    border-color: #86efac;
+    box-shadow: 0 4px 14px rgba(10, 122, 74, 0.1);
+  }
+
+  .admin-mobile-user-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 16px;
+    cursor: pointer;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    background: #fff;
+    transition: background-color 0.15s;
+  }
+  .admin-mobile-user-header:active {
+    background: #f8fafc;
+  }
+
+  .admin-mobile-user-identity {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+  }
+
+  .admin-mobile-user-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+
+  .admin-mobile-user-name {
+    font-size: 15px;
+    font-weight: 700;
+    color: #0f172a;
+    letter-spacing: -0.2px;
+    text-transform: capitalize;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .admin-mobile-user-sub {
+    font-size: 12px;
+    color: #64748b;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .admin-mobile-user-chevron {
+    color: #94a3b8;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: 8px;
+    flex-shrink: 0;
+  }
+
+  .admin-mobile-user-chevron .chevron-icon {
+    transition: transform 0.25s ease;
+  }
+  .admin-mobile-user-chevron .chevron-icon.rotate {
+    transform: rotate(180deg);
+    color: #16a34a;
+  }
+
+  .admin-mobile-user-details {
+    padding: 14px 16px 16px;
+    border-top: 1px solid #f1f5f9;
+    background: #f8fafc;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    animation: fadeIn 0.2s ease both;
+  }
+
+  .admin-mobile-detail-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    font-size: 13px;
+  }
+
+  .admin-mobile-detail-row .detail-label {
+    color: #64748b;
+    font-weight: 500;
+    font-size: 12px;
+    flex-shrink: 0;
+  }
+
+  .admin-mobile-detail-row .contact-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: #0a7a4a;
+    font-weight: 600;
+    text-decoration: none;
+  }
+  .admin-mobile-detail-row .contact-link:hover {
+    text-decoration: underline;
+  }
+
+  /* Toolbar fixes on mobile */
+  .admin-page-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+  .toolbar-search-box {
+    max-width: 100% !important;
+    width: 100%;
+    box-sizing: border-box;
+  }
+  .toolbar-stats-pill {
+    align-self: flex-start;
+  }
+}
+
 /* Mobile backdrop */
 .portal-mobile-backdrop {
   position: fixed;
