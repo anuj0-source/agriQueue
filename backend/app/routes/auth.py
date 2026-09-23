@@ -85,6 +85,7 @@ async def login(
         value=token,
         httponly=True,
         samesite="none",
+        secure=True,
         max_age=7 * 24 * 60 * 60,
     )
 
