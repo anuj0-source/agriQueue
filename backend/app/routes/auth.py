@@ -191,7 +191,8 @@ async def logout(request: Request, response: Response):
         key="access_token",
         path="/",
         httponly=True,
-        samesite="lax",
+        samesite="none",
+        secure=True
     )
     return {
         "success": True,
