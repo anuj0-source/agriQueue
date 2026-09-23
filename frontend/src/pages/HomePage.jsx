@@ -50,6 +50,7 @@ export default function HomePage() {
           <a className="nav-cta" href="/create-account" onClick={closeMenu}>Get Started →</a>
         </div>
       </nav>
+      {menuOpen && <div className="nav-backdrop" onClick={closeMenu} aria-hidden="true" />}
 
       {/* ─── Hero ───────────────────────────────── */}
       <section className="home-hero" id="home">
