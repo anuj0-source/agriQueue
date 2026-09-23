@@ -12,7 +12,12 @@ from sqlalchemy.ext.asyncio import (
 from sqlalchemy.orm import DeclarativeBase
 from os import getenv
 
-DATABASE_URL = getenv("DATABASE_URL", "")
+DATABASE_URL = getenv("DATABASE_URL", "").strip()
+if not DATABASE_URL:
+    raise RuntimeError(
+        "DATABASE_URL environment variable is missing or empty. "
+        "Please check your backend/app/.env file."
+    )
 if "localhost" in DATABASE_URL:
     DATABASE_URL = DATABASE_URL.replace("localhost", "127.0.0.1")
 
