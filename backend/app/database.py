@@ -31,6 +31,10 @@ elif DATABASE_URL.startswith("postgres+asyncpg://"):
 elif DATABASE_URL.startswith("postgresql://") and not DATABASE_URL.startswith("postgresql+asyncpg://"):
     DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://", 1)
 
+# asyncpg expects 'ssl', NOT 'sslmode' (which is libpq/psycopg2 syntax used by Render)
+if "sslmode=" in DATABASE_URL:
+    DATABASE_URL = DATABASE_URL.replace("sslmode=", "ssl=")
+
 engine = create_async_engine(
     DATABASE_URL,
     echo=True
