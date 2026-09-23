@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react'
 import AdminLayout from '../components/AdminLayout'
 import { getAdminSlots, getAdminCenters } from '../api'
-import { Clock, CheckCircle2, AlertCircle, Building2, Filter } from 'lucide-react'
+import { Clock, CheckCircle2, AlertCircle, Building2, Filter, ChevronDown } from 'lucide-react'
 
 export default function AdminSlotsPage() {
   const [slots, setSlots] = useState([])
   const [centers, setCenters] = useState([])
   const [loading, setLoading] = useState(true)
   const [selectedCenterId, setSelectedCenterId] = useState('All')
+  const [expandedSlotId, setExpandedSlotId] = useState(null)
 
   useEffect(() => {
     async function load() {
@@ -29,8 +30,12 @@ export default function AdminSlotsPage() {
 
   const filteredSlots = slots.filter((s) => {
     if (selectedCenterId === 'All') return true
-    return String(s.center_id) === String(selectedCenterId) || s.center_name.includes(selectedCenterId)
+    return String(s.center_id) === String(selectedCenterId) || (s.center_name && s.center_name.includes(selectedCenterId))
   })
+
+  const toggleExpand = (id) => {
+    setExpandedSlotId(prev => prev === id ? null : id)
+  }
 
   return (
     <AdminLayout activePath="/admin/slots" title="Slot Schedules & Capacity" showTimeframe={false}>
@@ -60,9 +65,10 @@ export default function AdminSlotsPage() {
           </div>
         </div>
 
-        {/* Slots Table */}
+        {/* Slots Table / Content */}
         <div className="admin-panel-card table-panel-card">
-          <div className="admin-table-responsive">
+          {/* Desktop Table View */}
+          <div className="admin-table-responsive admin-desktop-table-wrap">
             <table className="admin-data-table">
               <thead>
                 <tr>
@@ -158,8 +164,135 @@ export default function AdminSlotsPage() {
               </tbody>
             </table>
           </div>
+
+          {/* Mobile Accordion List (Only Center Name visible initially, click to expand all details) */}
+          <div className="admin-mobile-slot-list">
+            {loading ? (
+              [1, 2, 3].map((i) => (
+                <div key={i} className="admin-mobile-slot-card" style={{ padding: 16 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <div className="skeleton" style={{ width: 36, height: 36, borderRadius: 10 }} />
+                    <div style={{ flex: 1 }}>
+                      <div className="skeleton skeleton-text" style={{ width: '55%', marginBottom: 6 }} />
+                      <div className="skeleton skeleton-text short" style={{ width: '35%' }} />
+                    </div>
+                  </div>
+                </div>
+              ))
+            ) : filteredSlots.length === 0 ? (
+              <div className="empty-state-wrapper" style={{ padding: '32px 16px', background: '#fff', borderRadius: 12, border: '1px solid #e2e8f0' }}>
+                <div className="empty-state-icon">
+                  <Clock size={28} />
+                </div>
+                <h3 className="empty-state-title" style={{ fontSize: 16 }}>No Time Slots Configured</h3>
+                <p className="empty-state-subtitle" style={{ fontSize: 13 }}>
+                  {selectedCenterId !== 'All'
+                    ? "This center doesn't have any time slots configured yet."
+                    : "There are no time slots configured across any of your procurement centers."}
+                </p>
+              </div>
+            ) : (
+              filteredSlots.map((slot) => {
+                const isExpanded = expandedSlotId === slot.id
+                const pct = Math.round((slot.booked_count / Math.max(slot.capacity, 1)) * 100)
+
+                return (
+                  <div key={slot.id} className={`admin-mobile-slot-card ${isExpanded ? 'expanded' : ''}`}>
+                    <div
+                      className="admin-mobile-slot-header"
+                      onClick={() => toggleExpand(slot.id)}
+                      role="button"
+                      tabIndex={0}
+                      aria-expanded={isExpanded}
+                    >
+                      <div className="admin-mobile-slot-identity">
+                        <div className="admin-mobile-slot-icon">
+                          <Building2 size={17} />
+                        </div>
+                        <div className="admin-mobile-slot-info">
+                          <span className="admin-mobile-slot-name">{slot.center_name}</span>
+                          <span className="admin-mobile-slot-sub">
+                            {slot.date} · {slot.time}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="admin-mobile-slot-header-right">
+                        <span className={`status-pill ${slot.status === 'Active' ? 'active' : 'inactive'}`}>
+                          {slot.status}
+                        </span>
+                        <ChevronDown size={18} className={`chevron-icon ${isExpanded ? 'rotate' : ''}`} />
+                      </div>
+                    </div>
+
+                    {isExpanded && (
+                      <div className="admin-mobile-slot-details">
+                        <div className="admin-mobile-detail-row">
+                          <span className="detail-label">Center Name</span>
+                          <strong>{slot.center_name}</strong>
+                        </div>
+
+                        <div className="admin-mobile-detail-row">
+                          <span className="detail-label">Scheduled Date</span>
+                          <span style={{ fontWeight: 600, color: '#334155' }}>{slot.date}</span>
+                        </div>
+
+                        <div className="admin-mobile-detail-row">
+                          <span className="detail-label">Time Window</span>
+                          <div className="time-badge">
+                            <Clock size={13} />
+                            <span>{slot.time}</span>
+                          </div>
+                        </div>
+
+                        <div className="admin-mobile-detail-row">
+                          <span className="detail-label">Total Capacity</span>
+                          <span style={{ fontWeight: 600 }}>{slot.capacity} slots</span>
+                        </div>
+
+                        <div className="admin-mobile-detail-row">
+                          <span className="detail-label">Booked Slots</span>
+                          <strong style={{ color: '#0a7a4a' }}>{slot.booked_count}</strong>
+                        </div>
+
+                        <div className="admin-mobile-detail-row">
+                          <span className="detail-label">Availability</span>
+                          <span className={`avail-tag ${slot.available === 0 ? 'zero' : ''}`}>
+                            {slot.available} left
+                          </span>
+                        </div>
+
+                        <div className="admin-mobile-detail-row">
+                          <span className="detail-label">Utilization</span>
+                          <div className="mini-progress-cell" style={{ gap: 8 }}>
+                            <div className="perf-progress-track" style={{ height: '6px', width: '80px' }}>
+                              <div
+                                className="perf-progress-fill"
+                                style={{
+                                  width: `${pct}%`,
+                                  backgroundColor: pct > 85 ? '#0a7a4a' : '#16a34a',
+                                }}
+                              />
+                            </div>
+                            <span className="pct-text">{pct}%</span>
+                          </div>
+                        </div>
+
+                        <div className="admin-mobile-detail-row">
+                          <span className="detail-label">Status</span>
+                          <span className={`status-pill ${slot.status === 'Active' ? 'active' : 'inactive'}`}>
+                            {slot.status}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )
+              })
+            )}
+          </div>
         </div>
       </div>
     </AdminLayout>
   )
 }
+
