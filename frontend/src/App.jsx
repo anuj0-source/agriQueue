@@ -105,7 +105,40 @@ function useCurrentPath() {
   useEffect(() => {
     const syncPath = () => setPath(window.location.pathname)
     window.addEventListener('popstate', syncPath)
-    return () => window.removeEventListener('popstate', syncPath)
+
+    // Intercept internal link clicks for seamless SPA navigation
+    const handleLinkClick = (e) => {
+      const anchor = e.target.closest('a')
+      if (!anchor) return
+
+      const href = anchor.getAttribute('href')
+      if (
+        href &&
+        href.startsWith('/') &&
+        !href.startsWith('//') &&
+        !anchor.hasAttribute('download') &&
+        anchor.target !== '_blank' &&
+        !e.ctrlKey &&
+        !e.metaKey &&
+        !e.shiftKey &&
+        !e.altKey &&
+        e.button === 0
+      ) {
+        e.preventDefault()
+        if (window.location.pathname !== href) {
+          window.history.pushState(null, '', href)
+          setPath(window.location.pathname)
+          window.scrollTo(0, 0)
+        }
+      }
+    }
+
+    document.addEventListener('click', handleLinkClick)
+
+    return () => {
+      window.removeEventListener('popstate', syncPath)
+      document.removeEventListener('click', handleLinkClick)
+    }
   }, [])
 
   return path
@@ -127,8 +160,9 @@ export default function App() {
     } catch {}
   }, [path])
 
-  // Basic query param stripping for routing
-  const cleanPath = path.split('?')[0]
+  // Basic query param stripping and trailing slash normalization for routing
+  const rawPath = path.split('?')[0]
+  const cleanPath = rawPath.length > 1 && rawPath.endsWith('/') ? rawPath.slice(0, -1) : rawPath
   
   const Page = PAGE_BY_PATH[cleanPath] ?? HomePage
   return (
