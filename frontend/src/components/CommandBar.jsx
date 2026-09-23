@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Sparkles, Mic, ArrowRight, Bot } from 'lucide-react'
+import { Mic, ArrowRight, Bot } from 'lucide-react'
 
 export default function CommandBar({ role = 'farmer', onTriggerCommand }) {
   const [query, setQuery] = useState('')
@@ -70,7 +70,6 @@ export default function CommandBar({ role = 'farmer', onTriggerCommand }) {
         <div className="command-bar-text-meta">
           <div className="command-bar-title-row">
             <span className="command-bar-title">AI Multilingual Command Assistant</span>
-            <span className="command-badge-gemini"><Sparkles size={11} /> Gemini Flash AI</span>
             <span className="command-badge">Voice + Text</span>
           </div>
           <p className="command-bar-subtitle">
