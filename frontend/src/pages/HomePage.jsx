@@ -58,7 +58,7 @@ export default function HomePage() {
           <div className="home-hero-content">
             <p className="eyebrow"><LeafMark /> India's trusted farm marketplace</p>
             <h1>
-              A Smarter Way for<br />
+              A Smarter Way for <br />
               Farmers to <em>Sell</em> Their Produce
             </h1>
             <p className="hero-copy">
