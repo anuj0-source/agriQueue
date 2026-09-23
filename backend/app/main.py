@@ -85,11 +85,17 @@ app.include_router(staff_router)
 app.include_router(notifications_router)
 app.include_router(agent_router)
 
-@app.get("/")
+@app.api_route("/", methods=["GET", "HEAD"])
 async def read_root():
-    return {"message": "This is AgriQueue backend"}
+    return {"status": "ok", "message": "This is AgriQueue backend"}
 
 
-@app.get("/health")
+@app.api_route("/health", methods=["GET", "HEAD"])
 async def get_health():
     return {"status": "ok"}
+
+
+if __name__ == "__main__":
+    import uvicorn
+    port = int(os.getenv("PORT", 8000))
+    uvicorn.run("main:app", host="0.0.0.0", port=port, reload=False)
