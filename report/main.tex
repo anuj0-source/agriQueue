@@ -2,6 +2,9 @@
 \documentclass[12pt]{report}
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
+\usepackage{amsmath}
+\usepackage{newtxtext,newtxmath}
+\usepackage{microtype}
 \usepackage{textcomp}
 
 %Package for Justifying page
@@ -11,6 +14,7 @@
 %Margin
 \usepackage{geometry}
 \geometry{a4paper, left=1.2in, right=1in, top=1in, bottom=1in}
+\usepackage{float}
 
 %Line Spacing
 \usepackage{setspace}
@@ -21,7 +25,6 @@
 \graphicspath{ {img/} }
 
 \usepackage[colorlinks=true, linkcolor=black, urlcolor=blue, citecolor=black]{hyperref}
-\usepackage{amsmath}
 
 %Tables
 \usepackage{booktabs}
@@ -32,6 +35,8 @@
 
 %Colors and listings
 \usepackage{xcolor}
+\definecolor{amber}{RGB}{245, 158, 11}
+\definecolor{emerald}{RGB}{16, 185, 129}
 \usepackage{listings}
 \lstset{basicstyle=\ttfamily\footnotesize, breaklines=true, frame=single, backgroundcolor=\color{gray!8}}
 
@@ -41,6 +46,7 @@
 
 %Compact section spacing
 \usepackage{titlesec}
+\titlespacing*{\chapter}{0pt}{0pt}{15pt}
 \titlespacing*{\section}{0pt}{8pt}{4pt}
 \titlespacing*{\subsection}{0pt}{6pt}{3pt}
 

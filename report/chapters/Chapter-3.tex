@@ -2,121 +2,212 @@
 \chapter{Requirement Specification \& Methodology}
 %========================================
 
-\section{SDLC Model -- Agile Iterative}
+\section{Software Development Life Cycle (SDLC) Model}
+
+AgriQueue adopted an Agile Iterative methodology tailored for rapid multi-tier development, iterative machine learning model tuning, and continuous stakeholder feedback:
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+  sprint/.style={rectangle, draw=blue!70!black, fill=blue!8, rounded corners=6pt,
+                 text width=3.4cm, minimum height=1.1cm, align=center, font=\scriptsize\bfseries},
+  phase/.style={rectangle, draw=teal!70!black, fill=teal!8, rounded corners=4pt,
+                text width=3.4cm, minimum height=0.7cm, align=center, font=\tiny\bfseries},
+  arr/.style={->, >=Latex, thick, draw=gray!70!black},
+  lbl/.style={fill=white, inner sep=1.5pt, font=\tiny\bfseries, text=gray!80!black}
+]
+
+% Sprints arranged in a clean 2x2 grid
+\node[sprint] (sp1) at (0, 3.2)   {Sprint 1: Foundation\\(Auth, RBAC, DB Schema)};
+\node[sprint] (sp2) at (6.0, 3.2) {Sprint 2: Core Queues\\(Slots, Booking, SSE Stream)};
+\node[sprint] (sp3) at (6.0, 0.0) {Sprint 3: Operations\\(Staff Verification, Payments)};
+\node[sprint] (sp4) at (0, 0.0)   {Sprint 4: Intelligence\\(Admin Analytics, AI, Push)};
+
+% Iterative arrows
+\draw[arr] (sp1) -- node[lbl, above]{Sprint Goal Met} (sp2);
+\draw[arr] (sp2) -- node[lbl, right]{Capacity Validated} (sp3);
+\draw[arr] (sp3) -- node[lbl, below]{Financials Verified} (sp4);
+\draw[arr] (sp4) -- node[lbl, left]{Iterative Review} (sp1);
+
+\end{tikzpicture}
+\caption{Agile Iterative Sprint Lifecycle for AgriQueue}
+\label{fig:sdlc}
+\end{figure}
+
 \begin{itemize}
-  \item Chosen because requirements evolved across three user roles (farmer, staff, admin).
-  \item ML component required iterative train-evaluate cycles.
-  \item Delivered in 4 sprints: Auth+Centers $\to$ Booking+Queue $\to$ Staff+Payment $\to$ Admin+Notifications.
+  \item \textbf{Sprint 1 (Weeks 1--2):} Domain modeling, database migrations, JWT authentication, and center/crop configuration.
+  \item \textbf{Sprint 2 (Weeks 3--4):} Slot capacity logic, booking engine, token assignment, and live queue SSE streaming.
+  \item \textbf{Sprint 3 (Weeks 5--6):} Staff operational workflow, weighment deductions, automated net calculation, and payment lifecycle.
+  \item \textbf{Sprint 4 (Weeks 7--8):} HistGBR model training, LangGraph AI command agent, WebPush alerts, and cloud deployment.
 \end{itemize}
+
+\section{System Use Cases}
+
+The platform supports distinct actor interactions across the three operational roles:
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+  actor/.style={rectangle, draw=purple!80!black, fill=purple!10, rounded corners=6pt,
+                text width=2.2cm, minimum height=0.75cm, align=center, font=\scriptsize\bfseries},
+  usecase/.style={rectangle, draw=blue!70!black, fill=blue!6, rounded corners=12pt,
+                  text width=3.0cm, minimum height=0.6cm, align=center, font=\tiny\bfseries},
+  assoc/.style={-, thick, draw=gray!70!black},
+  dep/.style={->, >=Latex, dashed, thick, draw=blue!80!black},
+  lbl/.style={fill=white, inner sep=1.5pt, font=\tiny\bfseries, text=blue!80!black}
+]
+
+% System Boundary Box
+\draw[draw=blue!50!black, dashed, rounded corners=8pt, fill=blue!1, line width=0.8pt] (1.6, -3.8) rectangle (9.4, 7.6);
+\node[anchor=north west, font=\scriptsize\bfseries\color{blue!80!black}] at (1.8, 7.4) {System Boundary: AgriQueue Platform};
+
+% Actors
+\node[actor] (FAR) at (-0.2, 4.8)  {Farmer\\(Producer)};
+\node[actor] (STA) at (-0.2, 1.2)  {Center Staff\\(Operator)};
+\node[actor] (ADM) at (11.0, -1.8) {Admin\\(Supervisor)};
+\node[actor, fill=amber!15, draw=amber!80!black] (EXT) at (11.0, 4.4) {External Services\\(WebPush / ML)};
+
+% Use Cases inside boundary
+\node[usecase] (uc_auth)  at (5.5, 6.6) {Authenticate \& Manage Profile};
+\node[usecase] (uc_disc)  at (3.6, 5.5) {Browse Centers \& Daily Slots};
+\node[usecase] (uc_book)  at (3.6, 4.3) {Book Procurement Slot};
+\node[usecase] (uc_ml)    at (7.4, 4.3) {Predict Wait Time (ML)};
+\node[usecase] (uc_live)  at (3.6, 3.1) {Monitor Live Queue (SSE)};
+
+\node[usecase] (uc_call)  at (3.6, 1.8) {Call Next Queue Token};
+\node[usecase] (uc_weigh) at (3.6, 0.6) {Weigh Produce \& Grade};
+\node[usecase] (uc_pay)   at (7.4, 0.6) {Issue Payment \& Receipt};
+\node[usecase] (uc_disp)  at (5.5, -0.6) {Raise / Resolve Dispute};
+
+\node[usecase] (uc_conf)  at (7.4, -1.8) {Configure Centers \& Slots};
+\node[usecase] (uc_msp)   at (7.4, -2.9) {Set Produce MSP Rates};
+\node[usecase] (uc_ai)    at (3.6, -2.9) {AI Natural Language Queries};
+
+% Actor Associations (Farmer)
+\draw[assoc] (FAR) -- (uc_auth.west);
+\draw[assoc] (FAR) -- (uc_disc.west);
+\draw[assoc] (FAR) -- (uc_book.west);
+\draw[assoc] (FAR) -- (uc_live.west);
+\draw[assoc] (FAR.south east) -- (uc_disp.west);
+
+% Actor Associations (Staff)
+\draw[assoc] (STA.north east) -- (uc_auth.west);
+\draw[assoc] (STA) -- (uc_call.west);
+\draw[assoc] (STA) -- (uc_weigh.west);
+\draw[assoc] (STA) -- (uc_disp.west);
+
+% Actor Associations (Admin)
+\draw[assoc] (ADM.north west) -- (uc_auth.east);
+\draw[assoc] (ADM) -- (uc_conf.east);
+\draw[assoc] (ADM) -- (uc_msp.east);
+\draw[assoc] (ADM.west) -- (uc_ai.east);
+
+% External Services Associations
+\draw[assoc] (EXT.west) -- (uc_ml.east);
+\draw[assoc] (EXT.south west) -- (uc_live.east);
+
+% UML <<include>> and <<extend>> dependencies
+\draw[dep] (uc_book) -- node[lbl, above]{\guillemotleft include\guillemotright} (uc_ml);
+\draw[dep] (uc_weigh) -- node[lbl, above]{\guillemotleft include\guillemotright} (uc_pay);
+\draw[dep] (uc_disp) -- node[lbl, right]{\guillemotleft extend\guillemotright} (uc_pay);
+
+\end{tikzpicture}
+\caption{Comprehensive UML Use Case Diagram for AgriQueue Actors and System Boundary}
+\label{fig:usecase}
+\end{figure}
 
 \section{Functional Requirements}
 
 \subsection{Farmer Module}
 \begin{itemize}
-  \item Register with mobile, name, state, district, village, optional farmer ID.
-  \item Login with JWT cookie authentication.
-  \item Browse and search procurement centers.
-  \item View slot availability (available / full / expired) per date.
-  \item Book a time slot -- receive ML-predicted wait estimate.
-  \item Track booking status: Confirmed $\to$ Waiting $\to$ Serving $\to$ Completed.
-  \item Cancel a Confirmed/Waiting booking.
-  \item View live queue with real-time token position via SSE.
-  \item Track payment lifecycle and raise disputes.
-  \item Receive Web Push notifications for queue and payment events.
+  \item Self-registration with validated mobile number, full name, district, and village.
+  \item Secure login with HTTP-only cookie-based authentication.
+  \item Real-time discovery of nearby procurement centers and operational crop types.
+  \item Inspection of daily time slots with visual availability indicators (Available, Full, Expired).
+  \item Slot reservation with dynamic capacity validation and ML-estimated wait calculation.
+  \item Live token tracking via low-latency Server-Sent Events with countdown metrics.
+  \item Inspection of procurement receipts and tracking payment settlement states.
+  \item Browser push notification subscription for queue summons and disbursement alerts.
 \end{itemize}
 
 \subsection{Staff Module}
 \begin{itemize}
-  \item Login with staff credentials (staff role).
-  \item View today's booking queue for assigned center.
-  \item Call next token -- mark as Serving.
-  \item Record procurement: weight, deductions, grade, moisture\%, impurity\%, rate.
-  \item Mark booking Completed -- automatically creates Payment record.
-  \item Update payment status: Scheduled $\to$ Processing $\to$ Settled.
-  \item Raise / resolve payment disputes.
+  \item Role-authenticated login restricted to designated procurement center locations.
+  \item Real-time dashboard of daily registered arrivals sorted by sequential token numbers.
+  \item Immediate status mutation to \textit{Serving} with synchronized client-side notification.
+  \item Digital entry of gross vehicle weight, tare weight, tare deductions, and moisture percentage.
+  \item Automated evaluation of net payable amount using government MSP lookup tables.
+  \item Initiation and status management of digital payment transactions (Scheduled $\to$ Settled).
 \end{itemize}
 
 \subsection{Admin Module}
 \begin{itemize}
-  \item View system-wide analytics (centers, farmers, bookings, revenue).
-  \item CRUD for procurement centers, time slots, produce types, and pricing.
-  \item Manage staff accounts and assign to centers.
-  \item Monitor all farmer accounts and procurement records.
+  \item System-wide operational dashboard visualizing total centers, bookings, and financial turnover.
+  \item Administrative CRUD controls for centers, operating hours, capacity quotas, and crop MSP rates.
+  \item Staff profile provisioning and center assignment management.
+  \item Audit trail logging and administrative review of user dispute tickets.
 \end{itemize}
 
 \section{Non-Functional Requirements}
 
-\begin{table}[h!]
+\begin{table}[H]
 \centering
-\caption{Non-Functional Requirements}
+\caption{AgriQueue Non-Functional Requirements Matrix}
 \label{tab:nfr}
 \renewcommand{\arraystretch}{1.2}
 \begin{tabular}{|p{3cm}|p{10.5cm}|}
 \hline
-\textbf{Category} & \textbf{Requirement} \\ \hline
-Performance & API response time $<$500ms for 95\% of requests \\ \hline
-Real-Time & SSE queue updates within 5 seconds of any status change \\ \hline
-Scalability & Support 1000+ concurrent farmer sessions \\ \hline
-Security & JWT HttpOnly cookies; Argon2id hashing; CORS whitelist \\ \hline
-ML Accuracy & Wait time prediction within $\pm$10 min (R\textsuperscript{2} $\geq$ 0.95) \\ \hline
-Availability & 99.5\% uptime during procurement hours (8 AM -- 6 PM) \\ \hline
+\textbf{Category} & \textbf{Specification and Threshold} \\ \hline
+Performance & 95\% of REST API responses served in under 500 milliseconds \\ \hline
+Real-Time Delivery & Queue mutations broadcast via SSE to connected clients within 5 seconds \\ \hline
+Concurrency & Architectural support for 1,000+ simultaneous active farmer sessions \\ \hline
+Security & Argon2id password hashing, HTTP-only JWT storage, and CORS whitelisting \\ \hline
+ML Precision & Wait-time prediction error within $\pm$10 minutes ($R^2 \geq 0.95$) \\ \hline
+Availability & 99.5\% system uptime maintained throughout operational hours (8 AM -- 6 PM) \\ \hline
 \end{tabular}
 \end{table}
 
-\section{Interfaces}
+\section{System Interfaces}
 
 \subsection{Software Interfaces}
 \begin{itemize}
-  \item Frontend: React 19, Vite 8.2, Lucide-React icons, custom CSS.
-  \item Backend: FastAPI 0.141, SQLAlchemy 2.0 async, asyncpg 0.31, Pydantic 2.13.
-  \item Database: PostgreSQL 15 (cloud, SSL/asyncpg).
-  \item ML: scikit-learn 1.9, joblib 1.6, pandas 3.0, numpy 2.5.
-  \item AI Agent: LangChain 1.4, LangGraph 1.2, Google Gemini (google-genai 2.24).
-  \item Auth: PyJWT 2.13, pwdlib 0.3 (Argon2id).
-  \item Push: pywebpush 2.5 (VAPID), Firebase Admin SDK 7.5.
+  \item \textbf{User Interface:} React 19 single-page application utilizing Lucide icons and modern CSS.
+  \item \textbf{Application Framework:} FastAPI ASGI web framework running under Uvicorn.
+  \item \textbf{Relational Database:} PostgreSQL 15 accessed asynchronously through SQLAlchemy 2.0 and \texttt{asyncpg}.
+  \item \textbf{Inference Engine:} scikit-learn HistGradientBoosting regression pipeline serialized via Joblib.
+  \item \textbf{Generative Agent:} LangChain and LangGraph orchestration over Google Gemini Flash APIs.
+  \item \textbf{Push Protocols:} WebPush VAPID protocol managed through \texttt{pywebpush}.
 \end{itemize}
 
 \subsection{Communication Interfaces}
 \begin{itemize}
-  \item HTTPS REST API -- JSON responses for all data exchange.
-  \item SSE (Server-Sent Events) -- persistent HTTP connection for live queue push.
-  \item WebPush (VAPID) -- push notification delivery via browser push service.
-  \item CORS -- restricted to whitelisted frontend origins.
+  \item \textbf{HTTPS REST API:} Standardized JSON payloads over TLS 1.3 encryption.
+  \item \textbf{Server-Sent Events (SSE):} Persistent HTTP text/event-stream connection for unidimensional push.
+  \item \textbf{Browser WebPush:} Secure VAPID-authenticated event delivery across disparate networks.
 \end{itemize}
 
-\section{Hardware Requirements}
+\section{Hardware and Operating Specifications}
 
-\begin{table}[h!]
+\begin{table}[H]
 \centering
-\caption{Hardware Requirements}
+\caption{System Hardware Requirements}
 \label{tab:hw}
 \renewcommand{\arraystretch}{1.2}
-\begin{tabular}{|p{3.5cm}|p{4.5cm}|p{5cm}|}
+\begin{tabular}{|p{3.2cm}|p{5.0cm}|p{5.0cm}|}
 \hline
-\textbf{Component} & \textbf{Minimum} & \textbf{Recommended} \\ \hline
-Processor & Dual-core 2.0 GHz & Quad-core 2.5+ GHz \\ \hline
-RAM & 4 GB & 8--16 GB \\ \hline
-Storage & 20 GB SSD & 50+ GB SSD \\ \hline
-Network & 10 Mbps & 100 Mbps \\ \hline
+\textbf{Resource} & \textbf{Minimum Specification} & \textbf{Recommended Production} \\ \hline
+Server CPU & 2 Cores (x86-64 / ARM64) & 4+ Cores (2.5+ GHz) \\ \hline
+Server RAM & 4 GB & 8--16 GB High-Speed DDR4 \\ \hline
+Disk Storage & 20 GB NVMe SSD & 100+ GB Managed Cloud Storage \\ \hline
+Network & 10 Mbps Dedicated Uplink & 100+ Mbps Redundant Connection \\ \hline
+Client Device & Modern Smartphone / PC & 4G/5G Connectivity, 2+ GB RAM \\ \hline
 \end{tabular}
 \end{table}
 
-\section{Software Requirements}
-\begin{itemize}
-  \item OS (Server): Ubuntu 22.04 LTS / Windows Server 2019.
-  \item OS (Client): Any browser (Chrome 90+, Firefox 90+, Safari 14+).
-  \item Languages: Python 3.11+ (backend), JavaScript ES2022 (frontend).
-  \item Database: PostgreSQL 15+.
-  \item ASGI Server: Uvicorn 0.52 (with Gunicorn workers for production).
-  \item Deployment: Render/Railway (backend), Vercel (frontend).
-  \item Version Control: Git + GitHub.
-\end{itemize}
-
 \section{General Constraints}
 \begin{itemize}
-  \item Internet required -- offline mode not supported.
-  \item Push notifications require Chrome or Firefox.
-  \item ML model accuracy improves as real booking data accumulates over time.
-  \item No direct hardware weighbridge integration -- weights entered manually by staff.
-  \item UI is English-only in current version.
+  \item \textbf{Network Connectivity:} Active internet connection required; offline synchronization not supported in initial release.
+  \item \textbf{Browser Compatibility:} Web Push features require modern standards-compliant browsers (Google Chrome, Mozilla Firefox, Microsoft Edge).
+  \item \textbf{Hardware Instrumentation:} Weighbridge readings are entered manually by verified center staff rather than via IoT telemetry.
+  \item \textbf{Localization:} User interface localization currently provided in English, with multi-language regional support scheduled for Phase II.
 \end{itemize}

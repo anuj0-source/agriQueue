@@ -22,6 +22,26 @@ export async function loginFarmer(mobile_number, password, role = 'farmer') {
   return data
 }
 
+export async function forgetPassword(mobile_number, new_password, role = 'farmer') {
+  const response = await fetch(`${API_BASE_URL}/auth/forget-password`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    credentials: 'include',
+    body: JSON.stringify({
+      mobile_number,
+      new_password,
+      role: (role || 'farmer').toLowerCase(),
+    }),
+  })
+  const data = await response.json()
+  if (!response.ok || !data.success) {
+    throw new Error(data.message || 'Failed to change password')
+  }
+  return data
+}
+
 export async function createFarmerAccount(payload) {
   const response = await fetch(`${API_BASE_URL}/auth/create-account`, {
     method: 'POST',

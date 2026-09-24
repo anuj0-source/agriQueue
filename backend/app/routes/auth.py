@@ -198,3 +198,47 @@ async def logout(request: Request, response: Response):
         "success": True,
         "message": "Logout successful"
     }
+
+@router.post("/forget-password")
+async def forget_password(
+    data: dict,
+    request: Request,
+    response: Response,
+    db: AsyncSession = Depends(get_db)
+):
+    mobile_number = str(data.get("mobile_number") or "").strip()
+    new_password = str(data.get("new_password") or "").strip()
+    role = str(data.get("role") or "farmer").lower()
+
+    if not mobile_number:
+        response.status_code = 400
+        return {"success": False, "message": "Mobile number is required"}
+
+    if not new_password or len(new_password) < 6:
+        response.status_code = 400
+        return {"success": False, "message": "New password must be at least 6 characters long"}
+
+    user = None
+    if role == "admin":
+        user = await db.scalar(select(Admin).where(Admin.mobile_number == mobile_number))
+    elif role == "staff":
+        user = await db.scalar(select(Staff).where(Staff.mobile_number == mobile_number))
+    else:
+        user = await db.scalar(select(Farmer).where(Farmer.mobile_number == mobile_number))
+
+    # Fallback search if not found in selected role
+    if not user:
+        user = await db.scalar(select(Farmer).where(Farmer.mobile_number == mobile_number))
+    if not user:
+        user = await db.scalar(select(Staff).where(Staff.mobile_number == mobile_number))
+    if not user:
+        user = await db.scalar(select(Admin).where(Admin.mobile_number == mobile_number))
+
+    if not user:
+        response.status_code = 404
+        return {"success": False, "message": f"No account found with mobile number {mobile_number}"}
+
+    ph = PasswordHash.recommended()
+    user.hashed_password = ph.hash(new_password)
+    await db.commit()
+    return {"success": True, "message": "Password changed successfully"}

@@ -4,280 +4,854 @@
 
 \section{System Architecture}
 
-AgriQueue follows a three-tier architecture:
+AgriQueue is architected as a modular, three-tier cloud platform designed for scalability, low latency, and fault tolerance:
 \begin{itemize}
-  \item \textbf{Tier 1 -- Presentation:} React 19 SPA hosted on Vercel CDN.
-  \item \textbf{Tier 2 -- Application:} FastAPI ASGI server (Uvicorn) with ML module and AI agent.
-  \item \textbf{Tier 3 -- Data:} PostgreSQL accessed via SQLAlchemy 2.0 async + asyncpg.
+  \item \textbf{Tier 1 -- Presentation Layer:} React 19 Single Page Application (SPA) deployed across globally distributed edge nodes on Vercel CDN. Supports responsive views tailored for farmers (mobile-first), staff (operational dashboard), and administrators (analytics portal).
+  \item \textbf{Tier 2 -- Application Layer:} FastAPI asynchronous ASGI web server running on Uvicorn workers. Houses authentication guards, the slot capacity engine, the real-time SSE queue broadcaster, the scikit-learn ML inference pipeline, and the LangGraph-powered AI assistant.
+  \item \textbf{Tier 3 -- Persistence \& External Services:} Managed PostgreSQL 15 database accessed via SQLAlchemy 2.0 async ORM and the high-throughput \texttt{asyncpg} driver, alongside VAPID Web Push servers and Google Gemini LLM cloud infrastructure.
 \end{itemize}
 
-\begin{figure}[h!]
+\begin{figure}[H]
 \centering
 \begin{tikzpicture}[
-  box/.style={rectangle, draw=black, rounded corners=4pt, fill=blue!10,
-              text width=2.6cm, minimum height=0.7cm, align=center, font=\scriptsize},
-  sbox/.style={rectangle, draw=black, rounded corners=4pt, fill=green!12,
-               text width=2.6cm, minimum height=0.7cm, align=center, font=\scriptsize},
-  dbox/.style={rectangle, draw=black, rounded corners=4pt, fill=orange!12,
-               text width=3cm, minimum height=0.7cm, align=center, font=\scriptsize},
-  arr/.style={->, >=Stealth, thick}
+  compbox/.style={rectangle, draw=blue!70!black, fill=blue!8, rounded corners=5pt,
+                  text width=2.6cm, minimum height=0.75cm, align=center, font=\scriptsize\bfseries},
+  srvbox/.style={rectangle, draw=teal!70!black, fill=teal!8, rounded corners=5pt,
+                 text width=2.6cm, minimum height=0.75cm, align=center, font=\scriptsize\bfseries},
+  datbox/.style={rectangle, draw=orange!70!black, fill=orange!10, rounded corners=5pt,
+                 text width=2.6cm, minimum height=0.75cm, align=center, font=\scriptsize\bfseries},
+  tierframe/.style={draw=gray!40, dashed, fill=gray!3, rounded corners=6pt},
+  arr/.style={->, >=Latex, thick, draw=gray!70!black},
+  lbl/.style={fill=white, inner sep=2pt, font=\tiny\bfseries, text=gray!80!black}
 ]
-% Tier 1 - Frontend
-\node[box] (F) at (0,4)    {Farmer Portal};
-\node[box] (S) at (3.5,4)  {Staff Portal};
-\node[box] (A) at (7,4)    {Admin Portal};
-\node[font=\scriptsize\bfseries] at (3.5,4.75) {Tier 1 -- Presentation (React + Vercel)};
 
-% Tier 2 - Backend
-\node[sbox] (API) at (3.5,2.2) {FastAPI Backend (Uvicorn)};
-\node[sbox] (ML)  at (0,2.2)   {ML Predictor (scikit-learn)};
-\node[sbox] (AG)  at (7,2.2)   {AI Agent (LangChain)};
-\node[font=\scriptsize\bfseries] at (3.5,3.0) {Tier 2 -- Application (Cloud VPS)};
+% Left-margin tier badge pills
+\node[fill=blue!15, draw=blue!70!black, rounded corners=3pt, font=\tiny\bfseries\color{blue!90!black}, inner sep=3pt] at (-2.2, 6.1) {Tier 1: UI};
+\node[fill=teal!15, draw=teal!70!black, rounded corners=3pt, font=\tiny\bfseries\color{teal!90!black}, inner sep=3pt] at (-2.2, 3.4) {Tier 2: App};
+\node[fill=orange!20, draw=orange!70!black, rounded corners=3pt, font=\tiny\bfseries\color{orange!90!black}, inner sep=3pt] at (-2.2, 0.7) {Tier 3: Data};
 
-% Tier 3 - Data
-\node[dbox] (DB) at (3.5,0.5) {PostgreSQL Database};
-\node[font=\scriptsize\bfseries] at (3.5,1.25) {Tier 3 -- Data (Managed Cloud DB)};
+% Tier 1 Nodes (y = 6.1)
+\node[compbox] (F) at (0, 6.1)    {Farmer Portal\\(Mobile Web)};
+\node[compbox] (S) at (4.2, 6.1)  {Staff Portal\\(Operations)};
+\node[compbox] (A) at (8.4, 6.1)  {Admin Portal\\(Analytics)};
 
-% Arrows Tier1->Tier2
-\draw[arr] (F.south)  -- (API.north west) node[midway,left,font=\tiny]{HTTPS/SSE};
-\draw[arr] (S.south)  -- (API.north);
-\draw[arr] (A.south)  -- (API.north east) node[midway,right,font=\tiny]{HTTPS};
-% Tier2 lateral
-\draw[arr] (API.west) -- (ML.east)  node[midway,above,font=\tiny]{predict};
-\draw[arr] (API.east) -- (AG.west)  node[midway,above,font=\tiny]{query};
-% Tier2->Tier3
-\draw[arr] (API.south) -- (DB.north) node[midway,right,font=\tiny]{asyncpg};
+% Tier 2 Nodes (y = 3.4)
+\node[srvbox] (ML)  at (0, 3.4)   {ML Wait Engine\\(scikit-learn)};
+\node[srvbox] (API) at (4.2, 3.4) {FastAPI Server\\(Uvicorn ASGI)};
+\node[srvbox] (AG)  at (8.4, 3.4) {AI Command Agent\\(LangGraph + Gemini)};
+
+% Tier 3 Nodes (y = 0.7)
+\node[datbox] (PUSH) at (0, 0.7)   {WebPush Service\\(Browser VAPID)};
+\node[datbox] (DB)   at (4.2, 0.7) {PostgreSQL 15 DB\\(Managed Cloud)};
+\node[datbox] (GEM)  at (8.4, 0.7) {Gemini 2.5 Flash\\(LLM Cloud API)};
+
+% Connectors Tier 1 -> Tier 2
+\draw[arr] (F.south) -- (API.north west) node[midway, lbl, above=2pt]{HTTPS / SSE};
+\draw[arr] (S.south) -- (API.north) node[midway, lbl]{HTTPS REST};
+\draw[arr] (A.south) -- (API.north east) node[midway, lbl, above=2pt]{HTTPS REST};
+
+% Connectors within Tier 2
+\draw[arr] (API.west) -- (ML.east) node[midway, lbl]{predict()};
+\draw[arr] (API.east) -- (AG.west) node[midway, lbl]{query()};
+
+% Connectors Tier 2 -> Tier 3
+\draw[arr] (API.south) -- (DB.north) node[midway, lbl]{asyncpg (TLS)};
+\draw[arr] (API.south west) -- (PUSH.north east) node[midway, lbl, above=2pt]{VAPID Alert};
+\draw[arr] (AG.south) -- (GEM.north) node[midway, lbl]{API Call};
+
 \end{tikzpicture}
-\caption{AgriQueue Three-Tier System Architecture}
+\caption{AgriQueue Three-Tier Modular System Architecture}
 \label{fig:arch}
 \end{figure}
 
-\section{Use Case Summary}
+\begin{itemize}
+  \item \textbf{Presentation Tier:} Delivers single-page responsive user interfaces rendered entirely on client devices with client-side routing via React Router.
+  \item \textbf{Application Tier:} Stateless RESTful API server handling request validation (Pydantic), token parsing (JWT), queue sequencing, and ML wait time estimation.
+  \item \textbf{Data Tier:} ACID-compliant relational data store with indexed queries for sub-10ms response times on active queues and booking verification.
+\end{itemize}
 
-\begin{table}[h!]
+\section{System Use Cases}
+
+\begin{table}[H]
 \centering
-\caption{Use Cases per Role}
+\caption{Detailed System Use Cases by Role}
 \label{tab:usecases}
 \renewcommand{\arraystretch}{1.2}
-\begin{tabular}{|p{2cm}|p{11.5cm}|}
+\begin{tabular}{|p{2.2cm}|p{3.5cm}|p{7.8cm}|}
 \hline
-\textbf{Role} & \textbf{Use Cases} \\ \hline
-Farmer & Register, Login, Browse Centers, View Slots, Book Slot, View Live Queue, Cancel Booking, View Bookings, Track Payment, Raise Dispute \\ \hline
-Staff & Login, View Queue, Call Token, Record Procurement, Mark Complete, Manage Payments, Resolve Disputes \\ \hline
-Admin & Login, Manage Centers, Manage Slots, Set Produce Prices, Manage Staff, Manage Users, View Analytics \\ \hline
+\textbf{Role} & \textbf{Category} & \textbf{Key Use Cases} \\ \hline
+\multirow{4}{*}{\textbf{Farmer}} 
+  & Account & Register account, Login via JWT cookie, View profile, Logout \\ \cline{2-3}
+  & Booking & Search centers, View slot capacity, Book slot, Cancel booking \\ \cline{2-3}
+  & Live Queue & Stream live token queue via SSE, Track estimated wait time \\ \cline{2-3}
+  & Finance & View procurement receipt, Track payment status, Raise dispute \\ \hline
+\multirow{3}{*}{\textbf{Staff}} 
+  & Queue Mgmt & View daily center queue, Call next token, Mark farmer serving \\ \cline{2-3}
+  & Procurement & Weigh produce, Enter moisture \& deductions, Compute payable \\ \cline{2-3}
+  & Payments & Complete procurement, Initiate payment, Resolve farmer disputes \\ \hline
+\multirow{3}{*}{\textbf{Admin}} 
+  & Center Mgmt & Add/edit procurement centers, Configure time slots \& capacity \\ \cline{2-3}
+  & Pricing & Set government MSP rates per produce and quality grade \\ \cline{2-3}
+  & Staff \& Audit & Register staff accounts, Assign centers, Monitor system analytics \\ \hline
 \end{tabular}
 \end{table}
 
-\section{Entity Relationship Diagram}
+\section{Data Flow Diagrams (DFD)}
 
-\begin{figure}[h!]
+Data Flow Diagrams model the flow of data through the AgriQueue platform, detailing transformations across system processes, operational actors, and persistent datastores.
+
+\subsection{DFD Level 0: Context-Level Diagram}
+
+The Context Diagram defines the external boundary of the platform, illustrating key inputs and outputs between AgriQueue and the primary external entities:
+
+\begin{figure}[H]
 \centering
 \begin{tikzpicture}[
-  ent/.style={rectangle, draw=black, fill=blue!8, rounded corners=3pt,
-              text width=2.4cm, minimum height=0.65cm, align=center, font=\scriptsize\bfseries},
-  arr/.style={->, >=Stealth, thin, dashed}
+  proc/.style={circle, draw=teal!80!black, fill=teal!10, text width=3.2cm,
+               minimum height=3.2cm, align=center, font=\scriptsize\bfseries, line width=1pt},
+  entity/.style={rectangle, draw=blue!80!black, fill=blue!8, rounded corners=4pt,
+                 text width=2.4cm, minimum height=0.85cm, align=center, font=\scriptsize\bfseries},
+  ext/.style={rectangle, draw=amber!80!black, fill=amber!12, rounded corners=4pt,
+              text width=2.5cm, minimum height=0.85cm, align=center, font=\scriptsize\bfseries},
+  arr/.style={->, >=Latex, thick, draw=gray!70!black},
+  lbl/.style={fill=white, inner sep=1.2pt, font=\tiny\bfseries, text=gray!80!black}
 ]
-% Row 1
-\node[ent] (FAR) at (0,5)    {Farmer};
-\node[ent] (BOK) at (4,5)    {Booking};
-\node[ent] (CTR) at (8,5)    {Procurement\\Center};
-% Row 2
-\node[ent] (SLT) at (8,3.2)  {Slot};
-\node[ent] (PRD) at (8,1.6)  {Produce};
-\node[ent] (REC) at (4,3.2)  {Procurement\\Record};
-\node[ent] (PAY) at (4,1.6)  {Payment};
-% Row 3
-\node[ent] (STA) at (0,3.2)  {Staff};
-\node[ent] (PPR) at (0,1.6)  {Payment\\Profile};
-\node[ent] (PSH) at (0,0)    {PushSubscription};
-\node[ent] (ADM) at (4,0)    {Admin};
-\node[ent] (AUD) at (8,0)    {AgentAudit};
 
-% Relations
-\draw[arr] (FAR) -- node[above,font=\tiny]{books} (BOK);
-\draw[arr] (CTR) -- node[above,font=\tiny]{hosts} (BOK);
-\draw[arr] (CTR) -- node[right,font=\tiny]{has} (SLT);
-\draw[arr] (CTR) -- node[right,font=\tiny]{offers} (PRD);
-\draw[arr] (CTR) -- node[left,font=\tiny]{employs} (STA);
-\draw[arr] (BOK) -- node[right,font=\tiny]{1:1} (REC);
-\draw[arr] (BOK) -- node[right,font=\tiny]{1:1} (PAY);
-\draw[arr] (FAR) -- node[left,font=\tiny]{has} (PPR);
-\draw[arr] (FAR) -- node[left,font=\tiny]{sub} (PSH);
-\draw[arr] (STA) -- node[above,font=\tiny]{verifies} (REC);
+% Central Process 0.0
+\node[proc] (P0) at (5.5, 3.2) {0.0\\AgriQueue\\Platform\\System};
+
+% External Entities
+\node[entity] (FAR) at (0, 3.2)   {Farmer\\(Producer)};
+\node[entity] (STA) at (11.0, 3.2) {Center Staff\\(Operator)};
+\node[entity] (ADM) at (5.5, 7.2)  {Administrator\\(Supervisor)};
+\node[ext]    (EXT) at (5.5, -0.8) {External Services\\(WebPush / Gemini)};
+
+% Data Flows Farmer <-> P0
+\draw[arr] (FAR.north east) -- ++(0.7, 0.4) -| (P0.160)
+  node[pos=0.25, lbl, above]{Booking Req., Produce Specs};
+\draw[arr] (P0.200) -- ++(-1.4, -0.4) |- (FAR.south east)
+  node[pos=0.75, lbl, below]{Token, Wait Time, Receipts};
+
+% Data Flows Staff <-> P0
+\draw[arr] (STA.north west) -- ++(-0.7, 0.4) -| (P0.20)
+  node[pos=0.25, lbl, above]{Scale Weight, Deductions};
+\draw[arr] (P0.340) -- ++(1.4, -0.4) |- (STA.south west)
+  node[pos=0.75, lbl, below]{Queue Roster, Net MSP Payable};
+
+% Data Flows Admin <-> P0
+\draw[arr] ([xshift=-8pt]ADM.south) -- ([xshift=-8pt]P0.north)
+  node[midway, lbl, left=2pt]{Center Config, MSP Schedules};
+\draw[arr] ([xshift=8pt]P0.north) -- ([xshift=8pt]ADM.south)
+  node[midway, lbl, right=2pt]{Procurement Metrics, Audit Logs};
+
+% Data Flows External <-> P0
+\draw[arr] ([xshift=-8pt]P0.south) -- ([xshift=-8pt]EXT.north)
+  node[midway, lbl, left=2pt]{Push Alert, NL Queries};
+\draw[arr] ([xshift=8pt]EXT.north) -- ([xshift=8pt]P0.south)
+  node[midway, lbl, right=2pt]{Delivery Status, AI Answers};
+
 \end{tikzpicture}
-\caption{AgriQueue Entity Relationship Diagram}
+\caption{DFD Level 0: AgriQueue Context-Level Data Flow Diagram}
+\label{fig:dfd0}
+\end{figure}
+
+\newpage
+\subsection{DFD Level 1: Subsystem Data Flow Decomposition}
+
+The Level 1 DFD decomposes the central system into seven functional processes and five persistent datastores:
+
+\definecolor{procfill}{RGB}{218, 238, 255}
+\definecolor{procborder}{RGB}{24, 110, 185}
+\definecolor{entfill}{RGB}{230, 218, 255}
+\definecolor{entborder}{RGB}{100, 45, 175}
+\definecolor{dstorefill}{RGB}{255, 226, 192}
+\definecolor{dstoreborder}{RGB}{215, 105, 25}
+
+\begin{figure}[H]
+\centering
+\resizebox{\textwidth}{!}{%
+\begin{tikzpicture}[
+  proc/.style={
+    rectangle, draw=procborder, fill=procfill, rounded corners=6pt,
+    text width=2.9cm, minimum height=1.25cm, align=center,
+    font=\fontsize{9pt}{11pt}\selectfont\bfseries, line width=0.9pt
+  },
+  ent/.style={
+    rectangle, draw=entborder, fill=entfill, rounded corners=6pt,
+    text width=2.6cm, minimum height=1.15cm, align=center,
+    font=\fontsize{9pt}{11pt}\selectfont\bfseries, line width=0.9pt
+  },
+  dstore/.style={
+    cylinder, shape border rotate=90, aspect=0.25,
+    draw=dstoreborder, fill=dstorefill,
+    text width=2.7cm, minimum height=1.15cm, align=center,
+    font=\fontsize{9pt}{11pt}\selectfont\bfseries, line width=0.9pt
+  },
+  arr/.style={->, >=Latex, line width=0.75pt, draw=black!90},
+  darr/.style={<->, >=Latex, line width=0.75pt, draw=black!90},
+  dasharr/.style={->, >=Latex, dashed, line width=0.75pt, draw=black!90},
+  lbl/.style={fill=white, inner sep=1.2pt, font=\fontsize{7.5pt}{9pt}\selectfont, align=center}
+]
+
+% Diagram Title (Top Centered)
+\node[font=\LARGE\bfseries] at (7.4, 10.0) {AgriQueue -- Level 1 Data Flow Diagram};
+
+% --- NODES ---
+% Row Top (y = 8.4): D1 and Administrator
+\node[dstore] (D1) at (3.6, 8.4) {D1: Users \&\\Credentials};
+\node[ent] (E_ADM) at (8.6, 8.4) {Administrator\\(Supervisor)};
+
+% Row 1 (y = 5.6): Process 1.0, Process 2.0, Datastore D2
+\node[proc] (P1) at (3.6, 5.6) {1.0\\Authentication\\\& RBAC};
+\node[proc] (P2) at (8.6, 5.6) {2.0\\Slot Capacity\\\& Schedules};
+\node[dstore] (D2) at (15.8, 5.6) {D2: Centers,\\Slots \& Rates};
+
+% Farmer Entity (y = 5.6)
+\node[ent] (E_FAR) at (-1.5, 5.6) {Farmer\\(Producer)};
+
+% Row 2 (y = 2.4): Process 3.0, Process 4.0, Process 5.0
+\node[proc] (P3) at (3.6, 2.4) {3.0\\Booking \&\\Token Engine};
+\node[proc] (P4) at (8.6, 2.4) {4.0\\ML Wait-Time\\Inference};
+\node[proc] (P5) at (13.8, 2.4) {5.0\\Live SSE\\Queue Stream};
+
+% Row 3: Datastore D3 (y = 0.3), Process 6.0 (y = -1.6), Datastore D4 (y = -1.6)
+\node[dstore] (D3) at (3.6, 0.3) {D3: Active\\Queue Tokens};
+\node[proc] (P6) at (9.4, -1.6) {6.0\\Weighing\\Verification};
+\node[dstore] (D4) at (15.8, -1.6) {D4: Scale Records};
+
+% Row 4 (y = -4.0): Datastore D5, Process 7.0, Entity Center Staff
+\node[dstore] (D5) at (2.2, -4.0) {D5: Payments\\\& Receipts};
+\node[proc] (P7) at (8.0, -4.0) {7.0\\Payment\\Settlement};
+\node[ent] (E_STA) at (13.2, -4.0) {Center Staff\\(Operator)};
+
+% --- FLOWS / ARROWS ---
+
+% 1. Farmer <-> P1
+\draw[arr] ([yshift=7pt]E_FAR.east) -- ([yshift=7pt]P1.west)
+  node[midway, lbl, above=1pt]{Login Request};
+\draw[arr] ([yshift=-7pt]P1.west) -- ([yshift=-7pt]E_FAR.east)
+  node[midway, lbl, below=1pt]{(authenticated)};
+
+% 2. P1 <-> D1
+\draw[darr] (P1.north) -- (D1.south)
+  node[midway, lbl, right=3pt]{Verify / Read};
+
+% 3. Admin -> P2
+\draw[arr] (E_ADM.south) -- (P2.north)
+  node[midway, lbl, right=3pt]{Slot Quotas};
+
+% 4. P2 <-> D2
+\draw[arr] ([yshift=7pt]P2.east) -- ([yshift=7pt]D2.west)
+  node[midway, lbl, above=1pt]{Update Slots};
+\draw[arr] ([yshift=-7pt]D2.west) -- ([yshift=-7pt]P2.east)
+  node[midway, lbl, below=1pt]{Center Baseline};
+
+% 5. P2 -> P3 (Capacity OK)
+\draw[arr] ([xshift=-16pt]P2.south) -- ++(0, -1.0) -| (P3.north);
+\node[lbl] at (6.8, 4.3) {Capacity OK};
+
+% 6. Farmer Bus & Connections
+% Bus dropping from Farmer bottom-center
+\coordinate (FAR_BUS) at ([xshift=2pt]E_FAR.south);
+\coordinate (FAR_BUS_END) at ([xshift=2pt]E_FAR.south |- 0, -2.5);
+\draw[line width=0.75pt, draw=black!90] (FAR_BUS) -- (FAR_BUS_END);
+
+% Book Slot (from Farmer bottom-right)
+\draw[arr] ([xshift=18pt]E_FAR.south) |- ([yshift=10pt]P3.west)
+  node[pos=0.75, lbl, above=1pt]{Book Slot};
+
+% Token Card (from P3 west to FAR_BUS)
+\draw[arr] ([yshift=-8pt]P3.west) -- ([yshift=-8pt]P3.west -| FAR_BUS)
+  node[midway, lbl, below=1pt]{Token Card};
+
+% 7. P3 -> P4 (Queue Features)
+\draw[arr] (P3.east) -- (P4.west)
+  node[midway, lbl, above=1pt]{Queue\\Features};
+
+% 8. P4 -> P5 (Wait Estimate)
+\draw[arr] (P4.east) -- (P5.west)
+  node[midway, lbl, above=1pt]{Wait\\Estimate};
+
+% 9. D2 -> P4 (Center Baseline / Rates)
+\draw[arr] ([xshift=-16pt]D2.south) -- ++(0, -1.2) -| (P4.north)
+  node[pos=0.45, lbl, below=1pt]{Center Baseline / Rates};
+
+% 10. D2 -> P6 (MSP Rates)
+\draw[arr] ([xshift=12pt]D2.south) -- ++(0, -5.2) -| ([xshift=14pt]P6.north);
+\node[lbl, above=1pt] at (12.8, -0.65) {MSP Rates};
+
+% 11. P3 <-> D3 (Commit Token & Active Queue)
+\draw[arr] ([xshift=-12pt]P3.south) -- ([xshift=-12pt]D3.north)
+  node[midway, lbl, left=2pt]{Commit Token};
+\draw[arr] ([xshift=12pt]D3.north) -- ([xshift=12pt]P3.south)
+  node[midway, lbl, right=2pt]{Active Queue};
+
+% 12. D3 <-> P5
+% Active Queue (read): from 5.0 south, down to y=0.5, then left into D3 east
+\draw[arr] ([xshift=-16pt]P5.south) |- ([yshift=6pt]D3.east)
+  node[pos=0.68, lbl, above=1pt]{Active Queue (read)};
+% Active Queue Updates: from D3 east, horizontally right at y=0.1 to x=14.2, then up to 5.0 south
+\draw[arr] ([yshift=-6pt]D3.east) -| ([xshift=10pt]P5.south)
+  node[pos=0.38, lbl, above=1pt]{Active Queue Updates};
+
+% 13. P3 -> P6 (Dashed: Completed Booking for processing)
+\draw[dasharr] ([yshift=-12pt]P3.east) -- ++(1.4, 0) |- ([yshift=3pt]P6.west);
+\node[lbl] at (6.6, -1.0) {Completed Booking\\(for processing)};
+
+% 14. 5.0 -> 6.0 & Farmer (SSE Queue Stream)
+% Branch into 6.0
+\draw[arr] ([xshift=-4pt]P5.south) -- ++(0, -2.6) -| ([xshift=-6pt]P6.north);
+% Long stream to Farmer Bus (horizontal at y = -2.5)
+\draw[arr] ([xshift=-4pt]P5.south) -- ([xshift=-4pt]P5.south |- 0, -2.5) -- (FAR_BUS_END);
+\node[lbl, above=1pt] at (3.6, -2.4) {SSE Queue Stream (live updates)};
+
+% 15. P6 -> D4 (Save Scales)
+\draw[arr] (P6.east) -- (D4.west)
+  node[midway, lbl, above=1pt]{Save Scales};
+
+% 16. Center Staff -> P6 (Gross Wt, Deductions)
+\draw[arr] (E_STA.north) |- ([yshift=-8pt]P6.east)
+  node[pos=0.35, lbl, left=4pt]{Gross Wt, Deductions};
+
+% 17. P6 -> P7 (Net Payable - strictly vertical)
+\draw[arr] (8.5, -2.225) -- (8.5, -3.375)
+  node[midway, lbl, right=3pt]{Net Payable};
+
+% 18. P7 -> D5 (Disburse / Payment Record)
+\draw[arr] (P7.west) -- (D5.east)
+  node[midway, lbl, above=1pt]{Disburse /\\Payment Record};
+
+% 19. D5 -> Farmer (Digital Receipt)
+\draw[arr] (D5.west) -| ([xshift=-22pt]E_FAR.south)
+  node[pos=0.22, lbl, above=1pt]{Digital Receipt};
+
+\end{tikzpicture}%
+}
+\caption{DFD Level 1: Subsystem Process Decomposition and Data Stores}
+\label{fig:dfd1}
+\end{figure}
+
+\newpage
+\section{Entity Relationship Model}
+
+The relational data model comprises 12 entities structured to maintain referential integrity across the booking and payment lifecycle:
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+  ent/.style={rectangle, draw=blue!70!black, fill=blue!6, rounded corners=4pt,
+              text width=2.7cm, minimum height=0.7cm, align=center, font=\scriptsize\bfseries},
+  arr/.style={->, >=Latex, semithick, draw=gray!70!black},
+  lbl/.style={fill=white, inner sep=1.5pt, font=\tiny\bfseries, text=gray!80!black}
+]
+
+% Row 1 (y = 5.4)
+\node[ent] (FAR) at (0, 5.4)   {Farmer\\(\texttt{farmers})};
+\node[ent] (BOK) at (4.5, 5.4) {Booking\\(\texttt{bookings})};
+\node[ent] (CTR) at (9.0, 5.4) {Procurement Center\\(\texttt{centers})};
+
+% Row 2 (y = 3.6)
+\node[ent] (PPR) at (0, 3.6)   {Payment Profile\\(\texttt{payment\_profiles})};
+\node[ent] (REC) at (4.5, 3.6) {Procurement Record\\(\texttt{records})};
+\node[ent] (SLT) at (9.0, 3.6) {Time Slot\\(\texttt{slots})};
+
+% Row 3 (y = 1.8)
+\node[ent] (PSH) at (0, 1.8)   {Push Subscription\\(\texttt{push\_subs})};
+\node[ent] (PAY) at (4.5, 1.8) {Payment Record\\(\texttt{payments})};
+\node[ent] (PRD) at (9.0, 1.8) {Produce Type\\(\texttt{produces})};
+
+% Row 4 (y = 0.0)
+\node[ent] (ADM) at (0, 0.0)   {Admin User\\(\texttt{admins})};
+\node[ent] (AUD) at (4.5, 0.0) {Agent Audit\\(\texttt{agent\_audit})};
+\node[ent] (STA) at (9.0, 0.0) {Center Staff\\(\texttt{staff})};
+
+% Horizontal relations
+\draw[arr] (FAR) -- (BOK) node[midway, lbl]{1 : N (books)};
+\draw[arr] (CTR) -- (BOK) node[midway, lbl]{1 : N (hosts)};
+
+% Vertical relations - Col 1
+\draw[arr] (FAR) -- (PPR) node[midway, lbl]{1 : 1};
+\draw[arr] (FAR.south west) -- ++(-0.6,0) |- (PSH.west) node[pos=0.25, lbl]{1 : N};
+
+% Vertical relations - Col 2
+\draw[arr] (BOK) -- (REC) node[midway, lbl]{1 : 1 (yields)};
+\draw[arr] (REC) -- (PAY) node[midway, lbl]{1 : 1 (creates)};
+
+% Vertical relations - Col 3
+\draw[arr] (CTR) -- (SLT) node[midway, lbl]{1 : N (schedules)};
+\draw[arr] (CTR.south east) -- ++(0.6,0) |- (PRD.east) node[pos=0.25, lbl]{1 : N (offers)};
+\draw[arr] (CTR.east) -- ++(1.1,0) |- (STA.east) node[pos=0.25, lbl]{1 : N (employs)};
+
+% Cross relations
+\draw[arr] (STA.west) -- ++(-1.2,0) |- (REC.east) node[pos=0.25, lbl]{verifies};
+
+\end{tikzpicture}
+\caption{AgriQueue Relational Entity Relationship Diagram}
 \label{fig:erd}
 \end{figure}
 
-\section{Database Schema (Key Tables)}
+\begin{itemize}
+  \item \textbf{Farmer to Booking (1:N):} A registered farmer can schedule multiple procurement bookings across different dates and seasons.
+  \item \textbf{Center to Slot and Booking (1:N):} Centers partition daily operational hours into distinct slots, each enforcing an independent capacity ceiling.
+  \item \textbf{Booking to Procurement Record (1:1):} Each completed booking produces exactly one verified physical weighing record signed off by center staff.
+  \item \textbf{Procurement Record to Payment (1:1):} Completing a procurement automatically generates a trackable payment transaction record with automated net calculation.
+\end{itemize}
 
-\begin{table}[h!]
+\section{Database Schema Design}
+
+\begin{table}[H]
 \centering
-\caption{Bookings Table Schema}
-\label{tab:bookings}
+\caption{Primary Table Schemas}
+\label{tab:schema}
 \renewcommand{\arraystretch}{1.15}
-\begin{tabular}{|p{3.8cm}|p{2.8cm}|p{2.5cm}|p{4cm}|}
+\begin{tabular}{|p{3.2cm}|p{2.5cm}|p{2.2cm}|p{5.5cm}|}
 \hline
 \textbf{Field} & \textbf{Type} & \textbf{Constraint} & \textbf{Description} \\ \hline
-id & INTEGER & PK, Auto & Booking ID \\ \hline
-farmer\_id & INTEGER & FK, NOT NULL & Ref: farmers.id \\ \hline
-procurement\_center\_id & INTEGER & FK, NOT NULL & Ref: centers.id \\ \hline
-slot\_id & INTEGER & NOT NULL & Ref: slots.id \\ \hline
-status & VARCHAR & NOT NULL & Confirmed/Serving/Completed \\ \hline
-produce & VARCHAR & NOT NULL & Crop name \\ \hline
-quantity\_kg & INTEGER & NOT NULL & Booked quantity \\ \hline
-total\_price & INTEGER & NOT NULL & qty $\times$ price/kg \\ \hline
-estimated\_wait\_time & INTEGER & NOT NULL & ML predicted wait (min) \\ \hline
-token\_number & INTEGER & NOT NULL & Queue token \\ \hline
-booked\_at & DATETIME & NOT NULL & Booking timestamp \\ \hline
-\end{tabular}
-\end{table}
-
-\begin{table}[h!]
-\centering
-\caption{Procurement Records Table Schema}
-\label{tab:procrec}
-\renewcommand{\arraystretch}{1.15}
-\begin{tabular}{|p{3.8cm}|p{2.8cm}|p{2.5cm}|p{4cm}|}
-\hline
-\textbf{Field} & \textbf{Type} & \textbf{Constraint} & \textbf{Description} \\ \hline
-id & INTEGER & PK & Record ID \\ \hline
-booking\_id & INTEGER & FK, UNIQUE & Ref: bookings.id \\ \hline
-actual\_weight\_kg & INTEGER & NOT NULL & Weighed quantity \\ \hline
-deductions\_kg & INTEGER & DEFAULT 0 & Quality deductions \\ \hline
-net\_weight\_kg & INTEGER & NOT NULL & actual $-$ deductions \\ \hline
-quality\_grade & VARCHAR & NOT NULL & A / B / C \\ \hline
-moisture\_percent & FLOAT & DEFAULT 0 & Moisture \% \\ \hline
-rate\_per\_kg & INTEGER & NOT NULL & MSP price applied \\ \hline
-net\_payable & INTEGER & NOT NULL & net\_weight $\times$ rate \\ \hline
-verified\_by\_staff\_id & INTEGER & FK & Ref: staff.id \\ \hline
+\multicolumn{4}{|c|}{\textbf{Table: \texttt{bookings}}} \\ \hline
+id & INTEGER & PK, Auto & Unique booking identifier \\ \hline
+farmer\_id & INTEGER & FK, NOT NULL & References \texttt{farmers(id)} \\ \hline
+center\_id & INTEGER & FK, NOT NULL & References \texttt{centers(id)} \\ \hline
+slot\_id & INTEGER & NOT NULL & References \texttt{slots(id)} \\ \hline
+status & VARCHAR(32) & NOT NULL & Confirmed / Serving / Completed \\ \hline
+produce & VARCHAR(64) & NOT NULL & Crop name (e.g., Wheat, Mustard) \\ \hline
+quantity\_kg & INTEGER & NOT NULL & Declared crop weight in kilograms \\ \hline
+token\_number & INTEGER & NOT NULL & Daily sequential queue token \\ \hline
+est\_wait\_time & INTEGER & NOT NULL & ML predicted wait duration (minutes) \\ \hline
+booked\_at & TIMESTAMP & NOT NULL & Booking creation timestamp \\ \hline
+\multicolumn{4}{|c|}{\textbf{Table: \texttt{procurement\_records}}} \\ \hline
+id & INTEGER & PK, Auto & Record identifier \\ \hline
+booking\_id & INTEGER & FK, UNIQUE & References \texttt{bookings(id)} \\ \hline
+actual\_weight\_kg & INTEGER & NOT NULL & Gross scale weight in kg \\ \hline
+deductions\_kg & INTEGER & DEFAULT 0 & Moisture and impurity deductions \\ \hline
+net\_weight\_kg & INTEGER & NOT NULL & Computed: actual $-$ deductions \\ \hline
+quality\_grade & VARCHAR(8) & NOT NULL & Quality classification: Grade A / B / C \\ \hline
+moisture\_pct & FLOAT & DEFAULT 0 & Measured grain moisture percentage \\ \hline
+rate\_per\_kg & INTEGER & NOT NULL & Government MSP rate (Rs./kg) \\ \hline
+net\_payable & INTEGER & NOT NULL & Total disbursement: net\_weight $\times$ rate \\ \hline
+staff\_id & INTEGER & FK, NOT NULL & Verifying staff operator \\ \hline
 \end{tabular}
 \end{table}
 
 \section{Farmer Booking Process Flow}
 
-\begin{figure}[h!]
+The farmer booking workflow guides the agricultural producer from authentication to real-time queue participation:
+
+\begin{figure}[H]
 \centering
 \begin{tikzpicture}[
-  proc/.style={rectangle, draw=black, fill=blue!8, rounded corners=3pt,
-               text width=3.2cm, minimum height=0.6cm, align=center, font=\scriptsize},
-  dec/.style={diamond, draw=black, fill=orange!12,
-              text width=1.8cm, minimum height=0.4cm, align=center, font=\scriptsize, aspect=2.2},
-  term/.style={rectangle, draw=black, fill=green!12, rounded corners=8pt,
-               text width=3.2cm, minimum height=0.6cm, align=center, font=\scriptsize},
-  arr/.style={->, >=Stealth, thick}
+  node distance=0.65cm,
+  stepbox/.style={
+    rectangle, draw=blue!75!black, fill=blue!6, rounded corners=5pt,
+    text width=6.5cm, minimum height=0.76cm, align=center,
+    font=\small\bfseries, line width=1.0pt, inner ysep=4pt
+  },
+  decbox/.style={
+    diamond, draw=amber!85!black, fill=amber!15, aspect=2.2,
+    text width=2.6cm, minimum height=0.88cm, align=center,
+    font=\small\bfseries, line width=1.0pt, inner sep=2pt
+  },
+  termbox/.style={
+    rectangle, draw=emerald!75!black, fill=emerald!12, rounded corners=8pt,
+    text width=6.5cm, minimum height=0.76cm, align=center,
+    font=\small\bfseries, line width=1.0pt, inner ysep=4pt
+  },
+  altbox/.style={
+    rectangle, draw=red!75!black, fill=red!7, rounded corners=5pt,
+    text width=3.2cm, minimum height=0.82cm, align=center,
+    font=\footnotesize\bfseries, line width=1.0pt, inner sep=4pt
+  },
+  arr/.style={
+    -{Latex[length=3.4mm, width=2.4mm]}, line width=1.35pt, draw=blue!85!black
+  },
+  recirc/.style={
+    -{Latex[length=3.0mm, width=2.2mm]}, line width=1.25pt, draw=red!80!black
+  },
+  lbl/.style={
+    fill=white, inner sep=1.8pt, font=\scriptsize\bfseries, text=black!85
+  }
 ]
-\node[term] (st) at (0,8.5)   {Open AgriQueue App};
-\node[proc] (lg) at (0,7.5)   {Login (Mobile + Password)};
-\node[proc] (br) at (0,6.5)   {Browse Procurement Centers};
-\node[proc] (sl) at (0,5.5)   {Select Date \& View Slots};
-\node[dec]  (av) at (0,4.5)   {Slot Available?};
-\node[proc] (bk) at (0,3.4)   {Enter Produce, Qty, Grade};
-\node[proc] (ml) at (0,2.4)   {ML Predicts Wait Time};
-\node[proc] (cf) at (0,1.4)   {Token Assigned + Confirmed};
-\node[term] (qu) at (0,0.4)   {View Live Queue (SSE)};
 
-\node[proc] (no) at (4.5,4.5) {Show Full / Expired Message};
+\node[termbox] (st) {Start: Access AgriQueue};
+\node[stepbox, below=of st] (lg) {Login via Mobile \& Password};
+\node[stepbox, below=of lg] (br) {Browse Centers \& Crops};
+\node[stepbox, below=of br] (sl) {Select Date \& View Slot Grid};
+\node[decbox, below=0.75cm of sl]  (av) {Slot Has\\Capacity?};
+\node[altbox, right=1.2cm of av]   (fl) {Display Slot Full /\\Select Other Date};
 
-\draw[arr] (st)--(lg)--(br)--(sl)--(av);
-\draw[arr] (av) -- node[left,font=\tiny]{Yes} (bk);
-\draw[arr] (bk)--(ml)--(cf)--(qu);
-\draw[arr] (av) -- node[above,font=\tiny]{No} (no);
+\node[stepbox, below=0.75cm of av] (in) {Enter Produce, Qty \& Grade};
+\node[stepbox, below=of in] (ml) {ML Predicts Wait Time (mins)};
+\node[stepbox, below=of ml] (tk) {Assign Daily Token (e.g. J-014)};
+\node[termbox, below=of tk] (qu) {Stream Live Queue via SSE};
+
+% Flow connections
+\draw[arr] (st.south) -- (lg.north);
+\draw[arr] (lg.south) -- (br.north);
+\draw[arr] (br.south) -- (sl.north);
+\draw[arr] (sl.south) -- (av.north);
+
+\draw[recirc] (av.east) -- node[lbl, above=1pt]{No} (fl.west);
+\draw[recirc] (fl.north) |- (sl.east);
+
+\draw[arr] (av.south) -- node[lbl, midway, right=5pt]{Yes} (in.north);
+\draw[arr] (in.south) -- (ml.north);
+\draw[arr] (ml.south) -- (tk.north);
+\draw[arr] (tk.south) -- (qu.north);
+
 \end{tikzpicture}
-\caption{Farmer Slot Booking Process Flow}
+\caption{Farmer Slot Booking and Queue Progression Flowchart}
 \label{fig:bookflow}
 \end{figure}
 
-\section{Staff Procurement Flow}
+\begin{itemize}
+  \item \textbf{Capacity Validation:} Prevents overbooking by verifying that total booked quantity plus requested quantity remains within the slot threshold.
+  \item \textbf{Predictive Estimation:} Invokes the HistGradientBoosting ML model with dynamic center features to display accurate wait expectations before the farmer departs home.
+  \item \textbf{Token Sequencing:} Issues sequential per-center daily tokens guaranteeing deterministic service order upon physical arrival.
+\end{itemize}
 
-\begin{figure}[h!]
+\newpage
+\section{Staff Procurement Verification Flow}
+
+The center operator utilizes an operational dashboard to systematically verify produce and issue payment records:
+
+\begin{figure}[H]
 \centering
 \begin{tikzpicture}[
-  proc/.style={rectangle, draw=black, fill=green!8, rounded corners=3pt,
-               text width=4.5cm, minimum height=0.6cm, align=center, font=\scriptsize},
-  arr/.style={->, >=Stealth, thick}
+  node distance=0.68cm,
+  stepbox/.style={
+    rectangle, draw=teal!80!black, fill=teal!7, rounded corners=6pt,
+    text width=6.8cm, minimum height=0.78cm, align=center,
+    font=\small\bfseries, line width=1.0pt, inner ysep=5pt
+  },
+  termbox/.style={
+    rectangle, draw=emerald!75!black, fill=emerald!12, rounded corners=9pt,
+    text width=6.8cm, minimum height=0.78cm, align=center,
+    font=\small\bfseries, line width=1.0pt, inner ysep=5pt
+  },
+  arr/.style={
+    -{Latex[length=3.4mm, width=2.4mm]}, line width=1.35pt, draw=teal!85!black
+  }
 ]
-\node[proc] (a) at (0,6.5) {View Queue Dashboard};
-\node[proc] (b) at (0,5.5) {Call Next Token};
-\node[proc] (c) at (0,4.5) {Mark Booking: Serving};
-\node[proc] (d) at (0,3.5) {Record Weight + Deductions};
-\node[proc] (e) at (0,2.5) {Enter Grade, Moisture, Rate};
-\node[proc] (f) at (0,1.5) {System Computes Net Payable};
-\node[proc] (g) at (0,0.5) {Mark Completed $\to$ Payment Created};
-\draw[arr] (a)--(b)--(c)--(d)--(e)--(f)--(g);
+
+\node[termbox] (s1) {Staff Login \& Select Center};
+\node[stepbox, below=of s1] (s2) {View Active Queue Dashboard};
+\node[stepbox, below=of s2] (s3) {Call Next Token\\(Status $\to$ Serving)};
+\node[stepbox, below=of s3] (s4) {Weigh Truck / Bags\\(Gross Weight)};
+\node[stepbox, below=of s4] (s5) {Input Deductions,\\Grade \& Moisture \%};
+\node[stepbox, below=of s5] (s6) {System Computes Net\\Weight \& Payable};
+\node[stepbox, below=of s6] (s7) {Farmer Reviews\\\& Signs Receipt};
+\node[termbox, below=of s7] (s8) {Mark Completed $\to$\\Payment Scheduled};
+
+\draw[arr] (s1.south) -- (s2.north);
+\draw[arr] (s2.south) -- (s3.north);
+\draw[arr] (s3.south) -- (s4.north);
+\draw[arr] (s4.south) -- (s5.north);
+\draw[arr] (s5.south) -- (s6.north);
+\draw[arr] (s6.south) -- (s7.north);
+\draw[arr] (s7.south) -- (s8.north);
+
 \end{tikzpicture}
-\caption{Staff Procurement Verification Flow}
+\caption{Staff Procurement Physical Verification and Billing Flow}
 \label{fig:staffflow}
 \end{figure}
 
-\section{Live Queue SSE Architecture}
+\begin{itemize}
+  \item \textbf{Token Call Notification:} Updating a token to \textit{Serving} triggers immediate real-time SSE broadcasts and push notifications to the respective farmer.
+  \item \textbf{Standardized Quality Grading:} Enforces standard government deduction tables for moisture content exceeding prescribed thresholds.
+  \item \textbf{Automated Financial Calculations:} Eliminates manual math errors by programmatically evaluating:
+  \begin{equation}
+    \text{Net Weight} = \text{Actual Weight} - \text{Deductions}
+  \end{equation}
+  \begin{equation}
+    \text{Net Payable} = \text{Net Weight} \times \text{Rate per kg}
+  \end{equation}
+\end{itemize}
 
-\begin{figure}[h!]
+\newpage
+\section{System Interaction Sequence Diagrams}
+
+System interactions across operational tiers and client boundaries are formalized below via three primary sequence workflows:
+
+\subsection{Slot Booking and Predictive Wait-Time Allocation Sequence}
+
+The booking sequence illustrates client validation, database slot capacity verification, scikit-learn machine learning wait estimation, and transactional token generation:
+
+\begin{figure}[H]
 \centering
 \begin{tikzpicture}[
-  box/.style={rectangle, draw=black, rounded corners=3pt, fill=gray!8,
-              text width=3cm, minimum height=0.65cm, align=center, font=\scriptsize},
-  arr/.style={->, >=Stealth, thick}
+  header-client/.style={
+    rectangle, draw=blue!85!black, fill=blue!15, rounded corners=5pt,
+    text width=3.0cm, minimum height=0.9cm, align=center,
+    font=\small\bfseries, line width=1.1pt, inner ysep=4pt
+  },
+  header-api/.style={
+    rectangle, draw=blue!65!purple, fill=blue!12!purple!12, rounded corners=5pt,
+    text width=3.0cm, minimum height=0.9cm, align=center,
+    font=\small\bfseries, line width=1.1pt, inner ysep=4pt
+  },
+  header-ml/.style={
+    rectangle, draw=purple!85!black, fill=purple!15, rounded corners=5pt,
+    text width=3.0cm, minimum height=0.9cm, align=center,
+    font=\small\bfseries, line width=1.1pt, inner ysep=4pt
+  },
+  header-db/.style={
+    rectangle, draw=emerald!85!black, fill=emerald!16, rounded corners=5pt,
+    text width=3.0cm, minimum height=0.9cm, align=center,
+    font=\small\bfseries, line width=1.1pt, inner ysep=4pt
+  },
+  arr/.style={
+    -{Latex[length=3.0mm, width=2.2mm]}, line width=1.3pt, draw=blue!85!black
+  },
+  ret/.style={
+    -{Latex[length=3.0mm, width=2.2mm]}, dashed, line width=1.25pt, draw=purple!85!black
+  },
+  track/.style={
+    draw=gray!65!black, line width=0.9pt, dash pattern=on 4pt off 3pt
+  },
+  lbl/.style={
+    fill=white, inner sep=2pt, font=\scriptsize\bfseries, text=black
+  }
 ]
-\node[box] (cli) at (0,2)   {Farmer Browser};
-\node[box] (srv) at (5,2)   {FastAPI SSE Endpoint};
-\node[box] (db)  at (10,2)  {PostgreSQL DB};
 
-\node[box] (c1) at (0,0.5)  {SSE Client Open};
-\node[box] (s1) at (5,0.5)  {Every 5s: Fresh Session};
-\node[box] (d1) at (10,0.5) {Query bookings for today};
+% Lifelines (Columns at 1.6, 5.6, 9.6, 13.6)
+\node[header-client] (C)  at (1.6, 8.4)  {Farmer Client\\(React SPA)};
+\node[header-api]    (G)  at (5.6, 8.4)  {FastAPI Server\\(API Gateway)};
+\node[header-ml]     (ML) at (9.6, 8.4)  {ML Engine\\(HistGBR)};
+\node[header-db]     (DB) at (13.6, 8.4) {PostgreSQL DB\\(asyncpg)};
 
-\node[box] (s2) at (5,-1)   {Build queue snapshot};
-\node[box] (c2) at (0,-1)   {Render token + wait time};
+% Vertical Lifeline tracks
+\draw[track] (C.south)  -- (1.6, 0.2);
+\draw[track] (G.south)  -- (5.6, 0.2);
+\draw[track] (ML.south) -- (9.6, 0.2);
+\draw[track] (DB.south) -- (13.6, 0.2);
 
-\draw[arr] (cli) -- node[above,font=\tiny]{GET /queue/\{id\}/stream} (srv);
-\draw[arr] (srv) -- node[above,font=\tiny]{SELECT bookings} (db);
-\draw[arr] (db)  -- node[above,font=\tiny]{rows} (srv);
-\draw[arr] (srv) -- node[above,font=\tiny]{data: \{...\}} (cli);
+% Messages
+\draw[arr] (1.6, 6.9) -- node[lbl, above=1pt]{1: GET /centers/\{id\}/slots?date=...} (5.6, 6.9);
+\draw[arr] (5.6, 6.2) -- node[lbl, above=1pt]{2: SELECT capacity, booked\_kg FROM slots} (13.6, 6.2);
+\draw[ret] (13.6, 5.5) -- node[lbl, above=1pt]{3: Return available quotas per slot} (5.6, 5.5);
+\draw[ret] (5.6, 4.8) -- node[lbl, above=1pt]{4: HTTP 200: Slot availability grid} (1.6, 4.8);
 
-\draw[arr] (c1)--(s1)--(d1);
-\draw[arr] (d1) |- (s2);
-\draw[arr] (s2) -| (c2);
+\draw[arr] (1.6, 4.0) -- node[lbl, above=1pt]{5: POST /bookings \{crop, qty\_kg, slot\_id\}} (5.6, 4.0);
+\draw[arr] (5.6, 3.3) -- node[lbl, above=1pt]{6: predict(13 center \& queue features)} (9.6, 3.3);
+\draw[ret] (9.6, 2.6) -- node[lbl, above=1pt]{7: Return wait = 38 min, range [34, 42]} (5.6, 2.6);
+
+\draw[arr] (5.6, 1.8) -- node[lbl, above=1pt]{8: INSERT INTO bookings \& assign next token} (13.6, 1.8);
+\draw[ret] (13.6, 1.1) -- node[lbl, above=1pt]{9: COMMIT (Token = J-014, ID = 108)} (5.6, 1.1);
+\draw[ret] (5.6, 0.4) -- node[lbl, above=1pt]{10: HTTP 201: \{Token: J-014, EstWait: 38 min\}} (1.6, 0.4);
+
 \end{tikzpicture}
-\caption{SSE Live Queue Architecture}
+\caption{End-to-End Slot Booking and ML Wait-Time Prediction Sequence Diagram}
+\label{fig:seq-booking}
+\end{figure}
+
+\subsection{Physical Procurement Weighment and Payment Settlement Sequence}
+
+The procurement intake workflow coordinates center scales, moisture quality grading, government MSP evaluation, and automated digital disbursement creation:
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+  header-staff/.style={
+    rectangle, draw=teal!90!black, fill=teal!16, rounded corners=5pt,
+    text width=3.0cm, minimum height=0.9cm, align=center,
+    font=\small\bfseries, line width=1.1pt, inner ysep=4pt
+  },
+  header-api/.style={
+    rectangle, draw=cyan!85!black, fill=cyan!15, rounded corners=5pt,
+    text width=3.0cm, minimum height=0.9cm, align=center,
+    font=\small\bfseries, line width=1.1pt, inner ysep=4pt
+  },
+  header-db/.style={
+    rectangle, draw=emerald!90!black, fill=emerald!16, rounded corners=5pt,
+    text width=3.0cm, minimum height=0.9cm, align=center,
+    font=\small\bfseries, line width=1.1pt, inner ysep=4pt
+  },
+  header-farmer/.style={
+    rectangle, draw=blue!85!black, fill=blue!15, rounded corners=5pt,
+    text width=3.0cm, minimum height=0.9cm, align=center,
+    font=\small\bfseries, line width=1.1pt, inner ysep=4pt
+  },
+  arr/.style={
+    -{Latex[length=3.0mm, width=2.2mm]}, line width=1.3pt, draw=teal!90!black
+  },
+  arr-blue/.style={
+    -{Latex[length=3.0mm, width=2.2mm]}, line width=1.3pt, draw=blue!85!black
+  },
+  ret/.style={
+    -{Latex[length=3.0mm, width=2.2mm]}, dashed, line width=1.25pt, draw=purple!85!black
+  },
+  track/.style={
+    draw=gray!65!black, line width=0.9pt, dash pattern=on 4pt off 3pt
+  },
+  lbl/.style={
+    fill=white, inner sep=2pt, font=\scriptsize\bfseries, text=black
+  }
+]
+
+% Lifelines (Columns at 1.6, 5.6, 9.6, 13.6)
+\node[header-staff]  (S)   at (1.6, 8.4)  {Center Staff\\(Operator UI)};
+\node[header-api]    (API) at (5.6, 8.4)  {FastAPI Server\\(Procurement)};
+\node[header-db]     (DB)  at (9.6, 8.4)  {PostgreSQL DB\\(Relational)};
+\node[header-farmer] (F)   at (13.6, 8.4) {Farmer Client\\(SSE / WebPush)};
+
+% Vertical Lifeline tracks
+\draw[track] (S.south)   -- (1.6, 0.2);
+\draw[track] (API.south) -- (5.6, 0.2);
+\draw[track] (DB.south)  -- (9.6, 0.2);
+\draw[track] (F.south)   -- (13.6, 0.2);
+
+% Messages
+\draw[arr] (1.6, 6.9) -- node[lbl, above=1pt]{1: POST /queue/call-next \{token: J-014\}} (5.6, 6.9);
+\draw[arr] (5.6, 6.2) -- node[lbl, above=1pt]{2: UPDATE bookings SET status = 'Serving'} (9.6, 6.2);
+\draw[arr-blue] (5.6, 5.5) -- node[lbl, above=1pt]{3: SSE Broadcast: "Now Serving Token J-014"} (13.6, 5.5);
+
+\draw[arr] (1.6, 4.6) -- node[lbl, above=1pt]{4: Input physical scale weight \& moisture \%} (5.6, 4.6);
+\draw[arr] (5.6, 3.9) -- node[lbl, above=1pt]{5: SELECT msp\_rate FROM produces} (9.6, 3.9);
+\draw[ret] (9.6, 3.2) -- node[lbl, above=1pt]{6: Return MSP rate (e.g. Rs. 24/kg)} (5.6, 3.2);
+
+\draw[ret] (5.6, 2.5) -- node[lbl, above=1pt]{7: Return Net Wt: 1,000kg \& Payable: Rs. 24,000} (1.6, 2.5);
+\draw[arr] (1.6, 1.8) -- node[lbl, above=1pt]{8: POST /procurement/complete (Confirm bill)} (5.6, 1.8);
+\draw[arr] (5.6, 1.1) -- node[lbl, above=1pt]{9: INSERT INTO records \& payments (Scheduled)} (9.6, 1.1);
+\draw[arr-blue] (5.6, 0.4) -- node[lbl, above=1pt]{10: VAPID Push Alert: Digital Receipt \#RCP-0491} (13.6, 0.4);
+
+\end{tikzpicture}
+\caption{Physical Procurement Weighment and Digital Payment Settlement Sequence Diagram}
+\label{fig:seq-procurement}
+\end{figure}
+
+\subsection{Real-Time Live Queue SSE Synchronization Sequence}
+
+Server-Sent Events provide a persistent, single-direction HTTP connection enabling sub-second synchronization between physical center operations and farmer devices:
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+  header-client/.style={
+    rectangle, draw=blue!85!black, fill=blue!15, rounded corners=5pt,
+    text width=3.4cm, minimum height=0.9cm, align=center,
+    font=\small\bfseries, line width=1.1pt, inner ysep=4pt
+  },
+  header-server/.style={
+    rectangle, draw=teal!90!black, fill=teal!16, rounded corners=5pt,
+    text width=3.4cm, minimum height=0.9cm, align=center,
+    font=\small\bfseries, line width=1.1pt, inner ysep=4pt
+  },
+  header-db/.style={
+    rectangle, draw=emerald!90!black, fill=emerald!16, rounded corners=5pt,
+    text width=3.4cm, minimum height=0.9cm, align=center,
+    font=\small\bfseries, line width=1.1pt, inner ysep=4pt
+  },
+  arr/.style={
+    -{Latex[length=3.0mm, width=2.2mm]}, line width=1.3pt, draw=blue!85!black
+  },
+  ret/.style={
+    -{Latex[length=3.0mm, width=2.2mm]}, dashed, line width=1.25pt, draw=purple!85!black
+  },
+  track/.style={
+    draw=gray!65!black, line width=0.9pt, dash pattern=on 4pt off 3pt
+  },
+  lbl/.style={
+    fill=white, inner sep=2pt, font=\scriptsize\bfseries, text=black
+  }
+]
+
+% Lifelines (Columns at 2.0, 7.6, 13.2)
+\node[header-client] (C) at (2.0, 8.0)  {Farmer Client\\(Browser / Mobile)};
+\node[header-server] (S) at (7.6, 8.0)  {FastAPI Server\\(SSE Event Stream)};
+\node[header-db]     (D) at (13.2, 8.0) {PostgreSQL DB\\(Active Session)};
+
+% Vertical Lifeline tracks
+\draw[track] (C.south) -- (2.0, 0.1);
+\draw[track] (S.south) -- (7.6, 0.1);
+\draw[track] (D.south) -- (13.2, 0.1);
+
+% Messages
+\draw[arr] (2.0, 6.4) -- node[lbl, above=1pt]{1: GET /queue/\{center\_id\}/stream (Establish SSE Connection)} (7.6, 6.4);
+\draw[arr] (7.6, 5.2) -- node[lbl, above=1pt]{2: SELECT active bookings for today} (13.2, 5.2);
+\draw[ret] (13.2, 4.0) -- node[lbl, above=1pt]{3: Return sorted queue rows (Token, Status)} (7.6, 4.0);
+
+% In-server processing box
+\node[rectangle, draw=teal!90!black, fill=teal!14, rounded corners=5pt,
+      text width=5.2cm, minimum height=0.74cm, align=center,
+      font=\scriptsize\bfseries, text=teal!95!black, line width=1.1pt] at (7.6, 2.7)
+      {4: Compute tokens ahead \& ML wait estimation};
+
+\draw[arr] (7.6, 1.5) -- node[lbl, above=1pt]{5: data: \{serving: 5, your\_token: 7, wait: 14\}} (2.0, 1.5);
+
+% Periodic loop indication
+\node[rectangle, draw=amber!90!black, dashed, fill=amber!14, rounded corners=5pt,
+      text width=11.6cm, minimum height=0.74cm, align=center,
+      font=\scriptsize\bfseries, text=amber!95!black, line width=1.1pt] at (7.6, 0.5)
+      {\textbf{Active SSE Polling Loop:} Steps 2 through 5 automatically re-execute every 5 seconds};
+
+\end{tikzpicture}
+\caption{Server-Sent Events (SSE) Live Queue Sequence Diagram}
 \label{fig:sse}
 \end{figure}
 
-\section{Deployment Diagram}
+\begin{itemize}
+  \item \textbf{Low Overhead:} Compared to WebSocket handshakes, SSE operates over standard HTTP/1.1 or HTTP/2, requiring no specialized proxy configuration.
+  \item \textbf{Fresh Database Sessions:} Each 5-second polling cycle allocates an independent scoped database transaction, avoiding stale object references or connection leaks.
+  \item \textbf{Graceful Disconnect Handling:} Client network interruptions trigger automatic browser-managed reconnect backoffs with zero server-side zombie processes.
+\end{itemize}
 
-\begin{figure}[h!]
+\section{Cloud Deployment Topology}
+
+The production infrastructure combines serverless edge hosting with containerized backend services:
+
+\begin{figure}[H]
 \centering
 \begin{tikzpicture}[
-  nd/.style={rectangle, draw=black, fill=gray!10, rounded corners=4pt,
-             text width=2.8cm, minimum height=0.8cm, align=center, font=\scriptsize},
-  arr/.style={<->, >=Stealth, thick}
+  tier/.style={rectangle, draw=gray!70!black, fill=gray!8, rounded corners=5pt,
+               text width=2.8cm, minimum height=0.85cm, align=center, font=\scriptsize\bfseries},
+  arr/.style={->, >=Latex, thick, draw=gray!70!black},
+  lbl/.style={fill=white, inner sep=2pt, font=\tiny\bfseries, text=gray!80!black}
 ]
-\node[nd] (client)  at (0,0)    {Client Browser\\(Any Device)};
-\node[nd] (vercel)  at (4,2)    {Vercel CDN\\React SPA};
-\node[nd] (backend) at (4,-2)   {Cloud VPS\\FastAPI + Uvicorn};
-\node[nd] (pg)      at (8.5,-2) {Managed PostgreSQL\\(Cloud DB + SSL)};
-\node[nd] (push)    at (8.5,2)  {Browser Push\\Service (VAPID)};
 
-\draw[arr] (client) -- node[above left,font=\tiny]{HTTPS} (vercel);
-\draw[arr] (client) -- node[below left,font=\tiny]{HTTPS/SSE} (backend);
-\draw[arr] (backend) -- node[above,font=\tiny]{asyncpg+TLS} (pg);
-\draw[arr] (backend) -- node[right,font=\tiny]{WebPush} (push);
-\draw[arr] (push)    -- node[above right,font=\tiny]{Push Alert} (client);
+% Topology Nodes
+\node[tier, fill=blue!10]   (CL)  at (0, 2.5)   {Client Layer\\(Mobile / PC / Tab)};
+\node[tier, fill=purple!10] (CDN) at (5.2, 4.3) {Vercel Edge CDN\\(React 19 Frontend)};
+\node[tier, fill=teal!10]   (API) at (5.2, 0.7) {Cloud VPS Server\\(FastAPI + Uvicorn)};
+\node[tier, fill=amber!15]  (EXT) at (10.4, 4.3){External Services\\(WebPush + Gemini)};
+\node[tier, fill=orange!12] (DB)  at (10.4, 0.7){Managed Cloud DB\\(PostgreSQL 15)};
+
+% 1. Client to CDN (North-east orthogonal)
+\draw[arr] (CL.north) -- ++(0, 1.2) -| (CDN.west) node[pos=0.25, lbl]{HTTPS (Assets)};
+
+% 2. Client to Backend API (South-east orthogonal)
+\draw[arr] (CL.south) -- ++(0, -1.2) -| (API.west) node[pos=0.25, lbl]{HTTPS / SSE};
+
+% 3. Backend to PostgreSQL (Straight horizontal)
+\draw[arr] (API.east) -- (DB.west) node[midway, lbl]{asyncpg + TLS};
+
+% 4. Backend to External Services (Clean orthogonal between columns)
+\draw[arr] (API.north east) -- ++(1.0, 0.6) |- (EXT.south west) node[pos=0.4, lbl]{VAPID / REST};
+
+% 5. External Services to Client (Overhead loop)
+\draw[arr] (EXT.north) -- ++(0, 0.9) -| (CL.north west) node[pos=0.25, lbl]{Push Notification (VAPID)};
+
 \end{tikzpicture}
-\caption{AgriQueue Cloud Deployment Diagram}
+\caption{Production Cloud Deployment Topology}
 \label{fig:deploy}
 \end{figure}
 
-\section{Functional Modules}
 \begin{itemize}
-  \item \textbf{M1: Auth \& RBAC} -- JWT cookie login/logout, role guards on all endpoints.
-  \item \textbf{M2: Centers \& Slots} -- Center discovery, slot capacity with expiry detection.
-  \item \textbf{M3: Booking Engine} -- Capacity validation, token assignment, ML wait time call.
-  \item \textbf{M4: Live Queue (SSE)} -- 5-second push stream; farmer position + wait estimate.
-  \item \textbf{M5: ML Predictor} -- HistGBR model; 13 features; joblib artifact; heuristic fallback.
-  \item \textbf{M6: Procurement} -- Staff weight/grade/rate entry; net payable computation.
-  \item \textbf{M7: Payment Lifecycle} -- Scheduled $\to$ Processing $\to$ Settled; dispute management.
-  \item \textbf{M8: Admin CRUD} -- Full management of centers, slots, produce, staff, users.
-  \item \textbf{M9: Push Notifications} -- VAPID subscription store; push on queue/payment events.
-  \item \textbf{M10: AI Agent} -- LangChain + LangGraph ReAct agent; Gemini backend; NL queries.
+  \item \textbf{Vercel CDN Edge:} Serves immutable static bundles with aggressive global caching, reducing frontend latency to $<$50ms.
+  \item \textbf{FastAPI Application Server:} Hosted on Ubuntu cloud instance with automatic restart policies and TLS encryption for all incoming and outgoing connections.
+  \item \textbf{PostgreSQL Relational DB:} Enforces automated daily backups, read-write query optimization, and persistent volume encryption.
+\end{itemize}
+
+\section{System Functional Modules}
+
+AgriQueue is partitioned into ten distinct functional subsystems:
+\begin{itemize}
+  \item \textbf{M1: Authentication \& Role-Based Access Control (RBAC):} Secure HTTP-only JWT cookie management with Argon2id password hashing across Farmer, Staff, and Admin roles.
+  \item \textbf{M2: Center Discovery \& Slot Scheduling:} Configurable daily operational windows, crop acceptance rules, and automated capacity counting per time block.
+  \item \textbf{M3: Booking Lifecycle Engine:} Capacity enforcement, token generation, wait-time prediction linkage, and policy-governed cancellations.
+  \item \textbf{M4: Real-Time SSE Queue Streamer:} Asynchronous event emitter providing sub-5-second queue positioning updates to active farmer sessions.
+  \item \textbf{M5: Machine Learning Wait Time Predictor:} HistGradientBoosting regression model trained on 10,000 historical queue observations ($R^2 = 0.988$).
+  \item \textbf{M6: Staff Procurement Verification:} Physical weighment intake, automated quality grading deductions, and net payable calculation.
+  \item \textbf{M7: Digital Payment Lifecycle:} Automated transition from Scheduled $\to$ Processing $\to$ Settled, backed by audit logs and farmer dispute management.
+  \item \textbf{M8: Administrative Control Center:} Complete administrative CRUD interfaces for centers, slots, crops, pricing schedules, and staff rosters.
+  \item \textbf{M9: Web Push Notification Dispatcher:} Standards-compliant VAPID push alerts delivered directly to mobile browsers for queue turns and payments.
+  \item \textbf{M10: AI Command Assistant:} LangGraph ReAct agent powered by Google Gemini for natural language system querying and reporting.
 \end{itemize}

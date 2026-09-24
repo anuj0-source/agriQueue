@@ -35,6 +35,24 @@
   \item Integrate an AI command agent (LangChain + Google Gemini) for NL queries.
 \end{itemize}
 
+\section{Overall System Architecture and Concept}
+Figure~\ref{fig:project_overall} provides a comprehensive architectural and operational overview of the AgriQueue ecosystem.
+
+\begin{figure}[htbp]
+  \centering
+  \fboxsep=0pt\relax
+  {\color{gray!40}\fbox{\includegraphics[width=\textwidth]{img/project-overall-image.png}}}
+  \caption{AgriQueue Comprehensive Architecture, Module Interfaces, and Operational Workflow}
+  \label{fig:project_overall}
+\end{figure}
+
+The platform comprises three primary functional pillars:
+\begin{itemize}
+  \item \textbf{Farmer Module:} Advance slot reservation, digital token generation, live SSE queue monitoring, and transparent payment settlement tracking.
+  \item \textbf{Staff Module:} Center-specific queue dispatching, automated weighment entry, moisture deductions, and instant MSP amount computation.
+  \item \textbf{Admin Module:} Centralized management of mandis, capacity limits, crop MSP schedules, staff allocations, and dispute resolution.
+\end{itemize}
+
 \section{Scope}
 \begin{itemize}
   \item \textbf{User roles:} Farmer, Staff (center operator), Admin (government/agency).

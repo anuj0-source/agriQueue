@@ -16,77 +16,48 @@
 
 \section{Screenshots of Working Modules}
 
-\begin{figure}[h!]
-  \centering
-  \fbox{\parbox{11cm}{\centering\vspace{1.8cm}
-  \textit{[Screenshot: Home Page -- hero section, feature cards, Login/Register buttons]}
-  \vspace{1.8cm}}}
-  \caption{AgriQueue Home Page}
-  \label{fig:ss-home}
-\end{figure}
+The AgriQueue web application was deployed and validated across end-to-end user workflows spanning the public discovery portal, authenticated farmer management, interactive slot reservation, token issuance, live SSE queue tracking, and procurement center staff counter operations. Figures~\ref{fig:ss-home} through~\ref{fig:ss-staff} illustrate key working modules of the live application.
 
-\begin{figure}[h!]
+\clearpage
+
+\begin{figure}[H]
   \centering
-  \fbox{\parbox{11cm}{\centering\vspace{1.8cm}
-  \textit{[Screenshot: Farmer Dashboard -- KPI cards: Upcoming Bookings, Earnings, Payments]}
-  \vspace{1.8cm}}}
-  \caption{Farmer Dashboard -- KPI Summary}
+  \fboxsep=0pt\relax
+  {\color{gray!40}\fbox{\includegraphics[width=0.86\textwidth]{img/screenshot_home.png}}}
+  \caption{AgriQueue Public Landing Page and Discovery Portal}
+  \label{fig:ss-home}
+  \vspace{0.6cm}
+  {\color{gray!40}\fbox{\includegraphics[width=0.86\textwidth]{img/screenshot_farmer_dashboard.png}}}
+  \caption{Farmer Dashboard with KPI Summary and AI Multilingual Assistant}
   \label{fig:ss-dash}
 \end{figure}
+\clearpage
 
-\begin{figure}[h!]
+\begin{figure}[H]
   \centering
-  \fbox{\parbox{11cm}{\centering\vspace{1.8cm}
-  \textit{[Screenshot: Book Slot Page -- center cards, date picker, slot grid, ML wait badge]}
-  \vspace{1.8cm}}}
-  \caption{Book Slot Page with Slot Grid and ML Wait Estimate}
+  \fboxsep=0pt\relax
+  {\color{gray!40}\fbox{\includegraphics[width=0.86\textwidth]{img/screenshot_book_slot.png}}}
+  \caption{Slot Booking Workflow with Interactive Calendar and Slot Capacity}
   \label{fig:ss-book}
-\end{figure}
-
-\begin{figure}[h!]
-  \centering
-  \fbox{\parbox{11cm}{\centering\vspace{1.8cm}
-  \textit{[Screenshot: Booking Confirmed -- token card showing e.g. ``J-047'', slot time, center name]}
-  \vspace{1.8cm}}}
-  \caption{Booking Confirmation with Token Number}
+  \vspace{0.6cm}
+  {\color{gray!40}\fbox{\includegraphics[width=0.86\textwidth]{img/screenshot_booking_confirmed.png}}}
+  \caption{Booking Confirmation with Token Issuance (C-048) and AI Wait Estimate}
   \label{fig:ss-confirm}
 \end{figure}
+\clearpage
 
-\begin{figure}[h!]
+\begin{figure}[H]
   \centering
-  \fbox{\parbox{11cm}{\centering\vspace{1.8cm}
-  \textit{[Screenshot: Live Queue -- token hero card, Now Serving, Farmers Ahead, queue list]}
-  \vspace{1.8cm}}}
-  \caption{Live Queue Page -- Real-Time Token View}
+  \fboxsep=0pt\relax
+  {\color{gray!40}\fbox{\includegraphics[width=0.86\textwidth]{img/screenshot_live_queue.png}}}
+  \caption{Farmer Live Queue Real-Time Tracking Interface}
   \label{fig:ss-queue}
-\end{figure}
-
-\begin{figure}[h!]
-  \centering
-  \fbox{\parbox{11cm}{\centering\vspace{1.8cm}
-  \textit{[Screenshot: Staff Queue -- token list, Call/Serve buttons, booking detail panel]}
-  \vspace{1.8cm}}}
-  \caption{Staff Queue Management Dashboard}
+  \vspace{0.6cm}
+  {\color{gray!40}\fbox{\includegraphics[width=0.86\textwidth]{img/screenshot_staff_queue.png}}}
+  \caption{Staff Queue Management Console with Active Counter Workflow}
   \label{fig:ss-staff}
 \end{figure}
-
-\begin{figure}[h!]
-  \centering
-  \fbox{\parbox{11cm}{\centering\vspace{1.8cm}
-  \textit{[Screenshot: Procurement Form -- Weight, Deductions, Grade, Moisture, Rate, Net Payable]}
-  \vspace{1.8cm}}}
-  \caption{Procurement Verification Entry Form}
-  \label{fig:ss-proc}
-\end{figure}
-
-\begin{figure}[h!]
-  \centering
-  \fbox{\parbox{11cm}{\centering\vspace{1.8cm}
-  \textit{[Screenshot: Admin Dashboard -- Total Centers, Farmers, Today's Bookings, Revenue]}
-  \vspace{1.8cm}}}
-  \caption{Admin System Analytics Dashboard}
-  \label{fig:ss-admin}
-\end{figure}
+\clearpage
 
 \section{ML Prediction Sample Results}
 
@@ -95,7 +66,7 @@
 \caption{ML Wait Time Prediction Samples}
 \label{tab:ml-samples}
 \renewcommand{\arraystretch}{1.2}
-\begin{tabular}{|p{2.2cm}|p{1.8cm}|p{2cm}|p{2.5cm}|p{2.5cm}|p{2.5cm}|}
+\begin{tabular}{|p{1.8cm}|p{1.4cm}|p{1.8cm}|p{2.2cm}|p{2.6cm}|p{2.8cm}|}
 \hline
 \textbf{Crop} & \textbf{Ahead} & \textbf{Qty (kg)} & \textbf{Slot} & \textbf{Predicted} & \textbf{Congestion} \\ \hline
 Wheat & 0 & 1000 & 10:00 AM & 0 min (Direct) & No Wait \\ \hline
@@ -109,7 +80,7 @@ Maize & 2 & 500 & 01:00 PM & 19 min & Low Wait \\ \hline
 
 \section{Outputs and Observations}
 \begin{itemize}
-  \item \textbf{Farmer:} Slot booked with unique token (e.g., ``J-047'') in 3 API calls. SSE queue updates every 5 seconds in browser.
+  \item \textbf{Farmer:} Slot booked with unique token (e.g., ``C-048'') in 3 API calls. SSE queue updates every 5 seconds in browser.
   \item \textbf{Staff:} Calling a token updates status to ``Serving'' and all SSE clients refresh immediately.
   \item \textbf{Procurement:} Net payable computed as: \texttt{(actual\_weight - deductions) \texttimes\ rate\_per\_kg}.
   \item \textbf{Payment:} Receipt number auto-generated as \texttt{RCP-XXXXXX}; expected settlement date = booking\_date + 2 days.

@@ -2,14 +2,25 @@
 \chapter{Glossary}
 %========================================
 
-\begin{table}[h!]
-\centering
-\caption{Glossary of Terms and Abbreviations}
-\label{tab:glossary}
-\renewcommand{\arraystretch}{1.15}
-\begin{tabular}{|p{2.5cm}|p{4.5cm}|p{6.5cm}|}
+\renewcommand{\arraystretch}{1.2}
+\begin{longtable}{|>{\raggedright\arraybackslash}p{2.4cm}|>{\raggedright\arraybackslash}p{4.6cm}|>{\raggedright\arraybackslash}p{7.0cm}|}
+\caption{Glossary of Terms and Abbreviations}\label{tab:glossary}\\
 \hline
 \textbf{Term} & \textbf{Full Form} & \textbf{Description} \\ \hline
+\endfirsthead
+
+\hline
+\multicolumn{3}{|c|}{\small\textit{Glossary of Terms and Abbreviations -- Continued from previous page}} \\ \hline
+\textbf{Term} & \textbf{Full Form} & \textbf{Description} \\ \hline
+\endhead
+
+\hline
+\multicolumn{3}{|r|}{\footnotesize\textit{Continued on next page\dots}} \\ \hline
+\endfoot
+
+\hline
+\endlastfoot
+
 AgriQueue & Agricultural Queue Management & This project -- smart farmer procurement platform \\ \hline
 API & Application Programming Interface & Interface allowing software components to communicate \\ \hline
 ASGI & Async Server Gateway Interface & Python async web server specification used by FastAPI \\ \hline
@@ -47,6 +58,5 @@ UAT & User Acceptance Testing & Testing that verifies a system meets user requir
 UPI & Unified Payments Interface & India's real-time payment system; proposed for future \\ \hline
 VAPID & Voluntary App Server Identification & Protocol for authenticating push notification servers \\ \hline
 Vite & --- & Modern JS build tool used for the React frontend \\ \hline
-VPS & Virtual Private Server & Cloud-hosted VM running the AgriQueue backend \\ \hline
-\end{tabular}
-\end{table}
+VPS & Virtual Private Server & Cloud-hosted VM running the AgriQueue backend \\
+\end{longtable}

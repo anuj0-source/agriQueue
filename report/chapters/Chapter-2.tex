@@ -1,46 +1,59 @@
 \chapter{Literature Survey}
 
-\section{Existing Agricultural Procurement Systems}
-\begin{itemize}
-  \item \textbf{e-NAM (National Agriculture Market):} Pan-India electronic trading portal connecting 1000+ APMCs. Addresses price discovery only -- does not solve physical queue or slot management.
-  \item \textbf{PM-KISAN / DBT Scheme:} Digitizes farmer payment disbursement but post-procurement payment tracking at center level remains manual.
-  \item \textbf{State Portals (Rajasthan E-Mandi, UP Kisan Mitra):} Provide farmer registration but lack real-time queue management and ML optimization.
-  \item \textbf{FCI Systems:} Manage depot-level stock tracking -- no farmer-facing slot booking interface.
-  \item \textbf{Research Gap:} No system integrates slot booking + real-time queue + ML prediction + payment lifecycle in a single farmer-facing platform.
+\section{Introduction}
+\begin{itemize}[noitemsep, topsep=1pt, parsep=0pt, partopsep=0pt]
+  \item \textbf{Review Scope:} Covers digital procurement, slot booking, virtual queues, real-time alerts, ML wait-times, and conversational AI agents.
+  \item \textbf{Core Objective:} Identifies traditional mandi bottlenecks to establish the technical foundation for AgriQueue.
 \end{itemize}
 
-\section{Queue Management Systems}
-\begin{itemize}
-  \item \textbf{Token-based queues:} Widely used in banks, hospitals, and government offices. AgriQueue adapts this for agricultural procurement with per-center, per-day sequential tokens.
-  \item \textbf{M/M/c Queuing Model:} Classical multi-server queue model. Wait time depends on traffic intensity $\rho = \lambda/(c\mu)$. AgriQueue uses active counter count as an ML feature grounded in this theory.
-  \item \textbf{Server-Sent Events (SSE):} HTML5 standard for one-way server push. More efficient than polling -- server pushes updates only when data changes. AgriQueue uses 5-second SSE tick for live queue.
+\section{Digital Agricultural Procurement Systems}
+\begin{itemize}[noitemsep, topsep=1pt, parsep=0pt, partopsep=0pt]
+  \item \textbf{State of the Art:} Portals like e-NAM digitize trade records, farmer registry, and price discovery.
+  \item \textbf{Operational Gap:} Existing portals lack physical crowd scheduling, arrival quotas, and yard queue control.
 \end{itemize}
 
-\section{Machine Learning for Wait Time Prediction}
-\begin{itemize}
-  \item \textbf{Gradient Boosting Decision Trees (GBDT):} State-of-the-art on tabular regression tasks (XGBoost, LightGBM, HistGBR). AgriQueue uses scikit-learn's \texttt{HistGradientBoostingRegressor}.
-  \item \textbf{Key predictive features} identified in logistics research:
-    \begin{itemize}
-      \item Number of entities ahead in queue.
-      \item Quantity / load being processed.
-      \item Time of day (hour) and day of week.
-      \item Resource availability (counters / staff count).
-      \item Seasonal demand peaks.
-    \end{itemize}
-  \item AgriQueue model achieves \textbf{R\textsuperscript{2} = 0.988} on 2,000-sample validation set.
+\section{Online Slot Booking for Agricultural Procurement}
+\begin{itemize}[noitemsep, topsep=1pt, parsep=0pt, partopsep=0pt]
+  \item \textbf{Reservation Paradigm:} Adapts appointment models from healthcare and banking to mandi operations.
+  \item \textbf{Traffic Regulation:} Distributes arrivals evenly across operational hours, eliminating morning congestion.
 \end{itemize}
 
-\section{Technology Stack -- Related Work}
-\begin{itemize}
-  \item \textbf{FastAPI:} Leading Python async REST framework. Auto-generates OpenAPI docs. Outperforms Flask/DRF in benchmark throughput.
-  \item \textbf{React 19 + Vite:} Component-driven SPA framework with fast HMR for development and optimized production bundle.
-  \item \textbf{Web Push (VAPID):} Browser-based push notifications without a native app. Research shows push notifications reduce customer wait anxiety by 34\%.
-  \item \textbf{LangChain + Gemini:} LLM-powered AI agents for natural language queries on live system data. Emerging in agricultural advisory systems.
+\section{Queue Management in Agricultural Procurement}
+\begin{itemize}[noitemsep, topsep=1pt, parsep=0pt, partopsep=0pt]
+  \item \textbf{Conventional Bottleneck:} Unregulated queues cause prolonged waits, produce spoilage, and farmer fatigue.
+  \item \textbf{Virtual Queuing:} Implements sequential token generation, real-time position tracking, and counter calling.
 \end{itemize}
 
-\section{Summary of Research Gap}
-\begin{itemize}
-  \item Existing solutions handle only subsets: price discovery \textit{or} depot management \textit{or} registration.
-  \item No system provides: slot booking + live queue (SSE) + ML wait time + procurement verification + payment lifecycle + push notifications in one platform.
-  \item \textbf{AgriQueue addresses all these gaps} with an integrated, cloud-deployed, role-based platform.
+\section{Real-Time Notification and Procurement Tracking}
+\begin{itemize}[noitemsep, topsep=1pt, parsep=0pt, partopsep=0pt]
+  \item \textbf{Event Streaming \& Alerts:} Employs Server-Sent Events (SSE) for live queues and Web Push for proactive alerts across booking, turn-calling, weighment, and payments.
 \end{itemize}
+
+\section{Artificial Intelligence and AI Agents in Procurement}
+\begin{itemize}[noitemsep, topsep=1pt, parsep=0pt, partopsep=0pt]
+  \item \textbf{ML Wait-Time Estimation:} Applies gradient boosting on queue depth and history to predict wait times.
+  \item \textbf{Conversational AI Agents:} Uses LLM ReAct agents (LangChain/Gemini) for farmer queries and assistance.
+\end{itemize}
+
+\section{Existing Work in the Field}
+\begin{enumerate}[noitemsep, topsep=1pt, parsep=0pt, partopsep=0pt]
+  \item \textbf{Digital Mandi Portals:} Streamline pricing, but lack arrival scheduling.
+  \item \textbf{Online Booking Platforms:} Schedule slots, but lack weighbridge/MSP workflows.
+  \item \textbf{Digital Queue Systems:} Standardize token calling, but unsuited for bulk intake.
+  \item \textbf{AI Delay \& Chat Tools:} Forecast delays or FAQs, but lack mandi workflow context.
+\end{enumerate}
+
+\section{Research Gap Identified}
+\begin{itemize}[noitemsep, topsep=1pt, parsep=0pt, partopsep=0pt]
+  \item \textbf{Fragmented Architecture:} Registration, pricing, tokens, and payments operate in disjointed silos.
+  \item \textbf{Zero Pre-Arrival Visibility:} Farmers travel to mandis without knowing queue backlog or wait times.
+  \item \textbf{AgriQueue Solution:} Integrates slots, SSE queues, ML, WebPush, and a Gemini AI agent.
+\end{itemize}
+
+\section{Research Papers Referred}
+\begin{enumerate}[noitemsep, topsep=1pt, parsep=0pt, partopsep=0pt]
+  \item \textbf{Gumbi et al. (2023):} Smallholder digital adoption barriers; guides conversational AI agent.
+  \item \textbf{Swain et al. (2022):} Evaluated mandi arrivals under e-NAM; demonstrated need for queue coordination.
+  \item \textbf{Han et al. (2024):} ML in appointment scheduling; informs capacity-enforced slot allocation.
+  \item \textbf{Pak et al. (2021):} Regression models for queue delays; guides wait estimation.
+\end{enumerate}

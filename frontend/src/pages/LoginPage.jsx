@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { AlertCircle, ArrowLeft, Building2, Eye, EyeOff, IdCard, Lock } from 'lucide-react'
 import Brand from '../components/Brand'
+import ForgotPasswordModal from '../components/ForgotPasswordModal'
 import { loginFarmer, checkAuthSession } from '../api'
 
 export default function LoginPage() {
@@ -9,6 +10,7 @@ export default function LoginPage() {
   const [mobile, setMobile] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
+  const [showForgotModal, setShowForgotModal] = useState(false)
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
 
@@ -213,9 +215,14 @@ export default function LoginPage() {
 
             {/* Forgot Password Link */}
             <div className="login-forgot-row">
-              <a href="#forgot-password" className="login-forgot-link">
+              <button
+                type="button"
+                id="login-forgot-password-trigger"
+                className="login-forgot-link-btn"
+                onClick={() => setShowForgotModal(true)}
+              >
                 Forgot Password?
-              </a>
+              </button>
             </div>
 
             {/* Submit Button */}
@@ -233,6 +240,18 @@ export default function LoginPage() {
           </p>
         </div>
       </section>
+
+      {/* Forgot Password Modal */}
+      <ForgotPasswordModal
+        isOpen={showForgotModal}
+        onClose={() => setShowForgotModal(false)}
+        initialMobile={mobile}
+        initialRole={role}
+        onSuccess={({ mobile_number, role: updatedRole }) => {
+          if (mobile_number) setMobile(mobile_number)
+          if (updatedRole) setRole(updatedRole)
+        }}
+      />
     </main>
   )
 }
