@@ -1,0 +1,104 @@
+%========================================
+\chapter{Test Plan Document}
+%========================================
+
+\section{Test Strategy}
+\begin{itemize}
+  \item \textbf{Unit Testing:} Individual API functions tested with FastAPI \texttt{TestClient}.
+  \item \textbf{Integration Testing:} React frontend connected to live backend with test PostgreSQL database.
+  \item \textbf{System Testing:} Complete end-to-end workflow: Register $\to$ Book $\to$ Queue $\to$ Procurement $\to$ Payment.
+  \item \textbf{ML Validation:} Model validated on 2,000-sample held-out test set (R\textsuperscript{2}, RMSE, MAE).
+  \item \textbf{Security Testing:} JWT expiry, role guards, CORS, password hashing, XSS/CSRF prevention.
+  \item \textbf{Performance Testing:} Concurrent SSE connections and concurrent booking API requests.
+  \item \textbf{UAT:} Full walkthrough of all three portals by team members acting as end users.
+\end{itemize}
+
+\section{Test Cases and Status Report}
+
+\begin{longtable}{|p{0.4cm}|p{3.8cm}|p{1.6cm}|p{1.5cm}|p{5.8cm}|}
+\caption{Test Case Status Report}\label{tab:testcases}\\
+\hline
+\textbf{S.} & \textbf{Module / Test} & \textbf{Status} & \textbf{Error} & \textbf{Remarks} \\ \hline
+\endfirsthead
+\hline
+\textbf{S.} & \textbf{Module / Test} & \textbf{Status} & \textbf{Error} & \textbf{Remarks} \\ \hline
+\endhead
+1  & Farmer Registration (valid)          & Pass & Fixed & Account created, cookie set \\ \hline
+2  & Duplicate Mobile Registration        & Pass & Fixed & Returns 400 with message \\ \hline
+3  & Farmer Login (valid credentials)     & Pass & Fixed & JWT cookie set, profile returned \\ \hline
+4  & Login with wrong password            & Pass & Fixed & Returns 400, no cookie \\ \hline
+5  & Admin role login                     & Pass & Fixed & Role = admin, admin portal access \\ \hline
+6  & Staff role login                     & Pass & Fixed & Role = staff, center\_id returned \\ \hline
+7  & Farmer accessing /admin route        & Pass & Fixed & Returns 403 Forbidden \\ \hline
+8  & JWT token expiry                     & Pass & Fixed & Expired token returns 401 \\ \hline
+9  & Center listing (GET /centers)        & Pass & Fixed & All centers with crops + slots \\ \hline
+10 & Center search filter                 & Pass & Fixed & Filters by name and district \\ \hline
+11 & Slot availability for today          & Pass & Fixed & Expired slots marked correctly \\ \hline
+12 & Slot capacity calculation            & Pass & Fixed & available = (capacity - booked)/100 \\ \hline
+13 & Booking creation (valid)             & Pass & Fixed & Token, wait time returned \\ \hline
+14 & Booking past date                    & Pass & Fixed & Returns 400 ``Cannot book past date'' \\ \hline
+15 & Booking over slot capacity           & Pass & Fixed & Returns 400 with available kg \\ \hline
+16 & ML prediction (5 farmers ahead)      & Pass & Fixed & Returns wait minutes + range \\ \hline
+17 & ML prediction (0 farmers ahead)      & Pass & Fixed & Returns 0 min, Direct Entry \\ \hline
+18 & ML fallback (model file missing)     & Pass & Fixed & Heuristic formula activated \\ \hline
+19 & Cancel Confirmed booking             & Pass & Fixed & Status = Cancelled \\ \hline
+20 & Cancel Completed booking             & Pass & Fixed & Returns 400 \\ \hline
+21 & My Bookings list                     & Pass & Fixed & Sorted by booked\_at desc \\ \hline
+22 & Live Queue HTTP snapshot             & Pass & Fixed & nowServing, queue[], yourToken \\ \hline
+23 & SSE stream (30s test)                & Pass & Fixed & Events every 5s, no stale data \\ \hline
+24 & SSE disconnect handling              & Pass & Fixed & Generator exits cleanly \\ \hline
+25 & Staff view queue                     & Pass & Fixed & Today's bookings, token order \\ \hline
+26 & Staff calls token (Serving)          & Pass & Fixed & Status update reflected in SSE \\ \hline
+27 & Procurement record entry             & Pass & Fixed & Net payable computed correctly \\ \hline
+28 & Net payable calculation              & Pass & Fixed & (actual - deductions) × rate \\ \hline
+29 & Payment created on completion        & Pass & Fixed & Receipt number generated \\ \hline
+30 & Payment status update (Settled)      & Pass & Fixed & settled\_at timestamp set \\ \hline
+31 & Dispute raised by farmer             & Pass & Fixed & dispute\_status = ``Open'' \\ \hline
+32 & Dispute resolved by staff            & Pass & Fixed & dispute\_status = ``Resolved'' \\ \hline
+33 & Push subscription endpoint           & Pass & Fixed & Subscription stored in DB \\ \hline
+34 & Push notification delivered          & Pass & Fixed & Received in Chrome browser \\ \hline
+35 & Admin creates center                 & Pass & Fixed & Center ID starts at 1000 (Sequence) \\ \hline
+36 & Admin adds time slot                 & Pass & Fixed & Slot with capacity created \\ \hline
+37 & Admin sets produce price             & Pass & Fixed & Produce linked to center \\ \hline
+38 & Admin dashboard metrics              & Pass & Fixed & Correct counts and revenue sums \\ \hline
+39 & AI agent NL query                    & Pass & Fixed & Gemini returns structured answer \\ \hline
+40 & SQL injection prevention             & Pass & Fixed & ORM parameterized queries block it \\ \hline
+\end{longtable}
+
+\section{ML Model Metrics}
+
+\begin{table}[h!]
+\centering
+\caption{ML Model Validation Results}
+\label{tab:ml-metrics}
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{|p{5.5cm}|p{7cm}|}
+\hline
+\textbf{Metric} & \textbf{Value} \\ \hline
+Algorithm & HistGradientBoostingRegressor \\ \hline
+Training Samples & 8,000 \\ \hline
+Validation Samples & 2,000 \\ \hline
+R\textsuperscript{2} (Validation) & 0.988 \\ \hline
+RMSE (Validation) & $\approx$ 1.8 minutes \\ \hline
+MAE (Validation) & $\approx$ 1.2 minutes \\ \hline
+Inference Time & $\approx$ 2.3 ms per prediction \\ \hline
+\end{tabular}
+\end{table}
+
+\section{Performance Results}
+\begin{itemize}
+  \item \textbf{API response time:} Average 85ms (booking), 45ms (queue snapshot), 120ms (dashboard).
+  \item \textbf{SSE concurrency:} 10 simultaneous connections -- no memory leak, no stale data.
+  \item \textbf{Concurrent bookings:} 50 concurrent POST /bookings -- slot capacity correctly enforced.
+  \item \textbf{Frontend load:} First Contentful Paint $<$ 1.2s on broadband (Vite production build).
+\end{itemize}
+
+\section{Security Test Results}
+\begin{itemize}
+  \item JWT tokens expire after 7 days -- expired tokens return 401.
+  \item Farmer cannot access \texttt{/staff/*} or \texttt{/admin/*} -- returns 403.
+  \item Passwords stored as Argon2id hash -- no plain text stored anywhere.
+  \item HttpOnly + Secure + SameSite=None cookies prevent XSS and CSRF.
+  \item SQLAlchemy ORM parameterized queries block all SQL injection attempts.
+  \item CORS policy restricts requests to whitelisted origins only.
+\end{itemize}

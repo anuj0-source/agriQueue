@@ -1,0 +1,122 @@
+%========================================
+\chapter{Requirement Specification \& Methodology}
+%========================================
+
+\section{SDLC Model -- Agile Iterative}
+\begin{itemize}
+  \item Chosen because requirements evolved across three user roles (farmer, staff, admin).
+  \item ML component required iterative train-evaluate cycles.
+  \item Delivered in 4 sprints: Auth+Centers $\to$ Booking+Queue $\to$ Staff+Payment $\to$ Admin+Notifications.
+\end{itemize}
+
+\section{Functional Requirements}
+
+\subsection{Farmer Module}
+\begin{itemize}
+  \item Register with mobile, name, state, district, village, optional farmer ID.
+  \item Login with JWT cookie authentication.
+  \item Browse and search procurement centers.
+  \item View slot availability (available / full / expired) per date.
+  \item Book a time slot -- receive ML-predicted wait estimate.
+  \item Track booking status: Confirmed $\to$ Waiting $\to$ Serving $\to$ Completed.
+  \item Cancel a Confirmed/Waiting booking.
+  \item View live queue with real-time token position via SSE.
+  \item Track payment lifecycle and raise disputes.
+  \item Receive Web Push notifications for queue and payment events.
+\end{itemize}
+
+\subsection{Staff Module}
+\begin{itemize}
+  \item Login with staff credentials (staff role).
+  \item View today's booking queue for assigned center.
+  \item Call next token -- mark as Serving.
+  \item Record procurement: weight, deductions, grade, moisture\%, impurity\%, rate.
+  \item Mark booking Completed -- automatically creates Payment record.
+  \item Update payment status: Scheduled $\to$ Processing $\to$ Settled.
+  \item Raise / resolve payment disputes.
+\end{itemize}
+
+\subsection{Admin Module}
+\begin{itemize}
+  \item View system-wide analytics (centers, farmers, bookings, revenue).
+  \item CRUD for procurement centers, time slots, produce types, and pricing.
+  \item Manage staff accounts and assign to centers.
+  \item Monitor all farmer accounts and procurement records.
+\end{itemize}
+
+\section{Non-Functional Requirements}
+
+\begin{table}[h!]
+\centering
+\caption{Non-Functional Requirements}
+\label{tab:nfr}
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{|p{3cm}|p{10.5cm}|}
+\hline
+\textbf{Category} & \textbf{Requirement} \\ \hline
+Performance & API response time $<$500ms for 95\% of requests \\ \hline
+Real-Time & SSE queue updates within 5 seconds of any status change \\ \hline
+Scalability & Support 1000+ concurrent farmer sessions \\ \hline
+Security & JWT HttpOnly cookies; Argon2id hashing; CORS whitelist \\ \hline
+ML Accuracy & Wait time prediction within $\pm$10 min (R\textsuperscript{2} $\geq$ 0.95) \\ \hline
+Availability & 99.5\% uptime during procurement hours (8 AM -- 6 PM) \\ \hline
+\end{tabular}
+\end{table}
+
+\section{Interfaces}
+
+\subsection{Software Interfaces}
+\begin{itemize}
+  \item Frontend: React 19, Vite 8.2, Lucide-React icons, custom CSS.
+  \item Backend: FastAPI 0.141, SQLAlchemy 2.0 async, asyncpg 0.31, Pydantic 2.13.
+  \item Database: PostgreSQL 15 (cloud, SSL/asyncpg).
+  \item ML: scikit-learn 1.9, joblib 1.6, pandas 3.0, numpy 2.5.
+  \item AI Agent: LangChain 1.4, LangGraph 1.2, Google Gemini (google-genai 2.24).
+  \item Auth: PyJWT 2.13, pwdlib 0.3 (Argon2id).
+  \item Push: pywebpush 2.5 (VAPID), Firebase Admin SDK 7.5.
+\end{itemize}
+
+\subsection{Communication Interfaces}
+\begin{itemize}
+  \item HTTPS REST API -- JSON responses for all data exchange.
+  \item SSE (Server-Sent Events) -- persistent HTTP connection for live queue push.
+  \item WebPush (VAPID) -- push notification delivery via browser push service.
+  \item CORS -- restricted to whitelisted frontend origins.
+\end{itemize}
+
+\section{Hardware Requirements}
+
+\begin{table}[h!]
+\centering
+\caption{Hardware Requirements}
+\label{tab:hw}
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{|p{3.5cm}|p{4.5cm}|p{5cm}|}
+\hline
+\textbf{Component} & \textbf{Minimum} & \textbf{Recommended} \\ \hline
+Processor & Dual-core 2.0 GHz & Quad-core 2.5+ GHz \\ \hline
+RAM & 4 GB & 8--16 GB \\ \hline
+Storage & 20 GB SSD & 50+ GB SSD \\ \hline
+Network & 10 Mbps & 100 Mbps \\ \hline
+\end{tabular}
+\end{table}
+
+\section{Software Requirements}
+\begin{itemize}
+  \item OS (Server): Ubuntu 22.04 LTS / Windows Server 2019.
+  \item OS (Client): Any browser (Chrome 90+, Firefox 90+, Safari 14+).
+  \item Languages: Python 3.11+ (backend), JavaScript ES2022 (frontend).
+  \item Database: PostgreSQL 15+.
+  \item ASGI Server: Uvicorn 0.52 (with Gunicorn workers for production).
+  \item Deployment: Render/Railway (backend), Vercel (frontend).
+  \item Version Control: Git + GitHub.
+\end{itemize}
+
+\section{General Constraints}
+\begin{itemize}
+  \item Internet required -- offline mode not supported.
+  \item Push notifications require Chrome or Firefox.
+  \item ML model accuracy improves as real booking data accumulates over time.
+  \item No direct hardware weighbridge integration -- weights entered manually by staff.
+  \item UI is English-only in current version.
+\end{itemize}

@@ -1,0 +1,44 @@
+%========================================
+\chapter{Conclusion \& Future Work}
+%========================================
+
+\section{Conclusion}
+
+AgriQueue successfully delivers a full-stack, role-based digital platform for smart agricultural procurement and queue management. The key achievements are:
+
+\begin{itemize}
+  \item \textbf{Complete Full-Stack System:} React 19 frontend (24 pages) + FastAPI backend (9 routers) + PostgreSQL (12 tables).
+  \item \textbf{ML-Powered Queue Intelligence:} HistGradientBoosting model with R\textsuperscript{2}~=~0.988 predicts wait time at booking.
+  \item \textbf{Real-Time Queue Visibility:} SSE-based live queue gives farmers instant token position and wait estimate.
+  \item \textbf{End-to-End Workflow:} Registration $\to$ Booking $\to$ Queue $\to$ Procurement Verification $\to$ Payment Settlement.
+  \item \textbf{Secure RBAC:} Three-role JWT system with Argon2id passwords and HttpOnly cookies.
+  \item \textbf{Push Notifications:} VAPID WebPush alerts delivered to farmer browsers without a native app.
+  \item \textbf{AI Agent:} LangChain + LangGraph + Gemini for natural language system queries.
+  \item \textbf{Cloud Deployed:} Backend on cloud VPS; frontend on Vercel CDN -- globally accessible.
+\end{itemize}
+
+The system directly addresses critical pain points in India's agricultural procurement process, contributing to the Digital India and PM-KISAN digital transformation initiatives.
+
+\section{Limitations}
+\begin{itemize}
+  \item No native mobile app (Android/iOS) -- only mobile web browser access.
+  \item No hardware weighbridge integration -- weight data entered manually by staff.
+  \item UI is English-only -- Hindi/regional language support not yet implemented.
+  \item ML trained on synthetic data -- accuracy improves as real booking data accumulates.
+  \item No SMS fallback for push notifications (Twilio installed but not configured).
+  \item Bank transfer (UPI/NEFT) not integrated -- payment settlement is tracked but not disbursed.
+\end{itemize}
+
+\section{Future Work}
+\begin{itemize}
+  \item \textbf{Native Mobile App:} Build Android/iOS app using React Native with offline queue viewing.
+  \item \textbf{Weighbridge API:} Integrate IoT-based digital weighbridge for tamper-proof weight capture.
+  \item \textbf{Multi-Language:} Add Hindi (primary), Punjabi, Marathi, and Telugu via i18n.
+  \item \textbf{SMS Notifications:} Configure Twilio for SMS-based queue/payment alerts.
+  \item \textbf{UPI/NEFT Integration:} Direct farmer payment disbursement via NPCI UPI API.
+  \item \textbf{Online ML Retraining:} Weekly model retraining pipeline using accumulated real booking data.
+  \item \textbf{Multi-Level Admin:} Add district, state, and national admin roles for government-scale deployment.
+  \item \textbf{Crop Price Feed:} Integrate AGMARKNET/e-NAM APIs for live MSP price display in booking flow.
+  \item \textbf{PWA (Progressive Web App):} Add service workers for offline booking cache and background sync.
+  \item \textbf{Analytics Dashboard:} Add farmer earnings charts, booking trends, and crop price history graphs.
+\end{itemize}
