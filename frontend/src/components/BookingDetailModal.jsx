@@ -127,6 +127,7 @@ export default function BookingDetailModal({ isOpen, booking, onClose }) {
       >
         {/* ── Modal card ── */}
         <div
+          className="agri-modal-scroll"
           onClick={e => e.stopPropagation()}
           style={{
             background: '#fff', borderRadius: 24,
@@ -342,66 +343,66 @@ export default function BookingDetailModal({ isOpen, booking, onClose }) {
             </div>
 
             {/* Footer actions */}
-            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-              {/* Left actions */}
-              <button
-                onClick={() => window.print()}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 6,
-                  padding: '11px 18px', borderRadius: 12,
-                  border: '1.5px solid #e2e8f0', background: '#fff',
-                  color: '#374151', fontWeight: 600, fontSize: 13.5,
-                  cursor: 'pointer', transition: 'all 0.2s',
-                }}
-              >
-                <Printer size={15} /> Print Slip
-              </button>
-
-              {!isFinal && status !== 'Serving' && (
-                <button
-                  onClick={() => setShowConfirm(true)}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 6,
-                    padding: '11px 18px', borderRadius: 12,
-                    border: '1.5px solid #fecaca', background: '#fff',
-                    color: '#dc2626', fontWeight: 600, fontSize: 13.5, cursor: 'pointer',
-                  }}
-                >
-                  Cancel Booking
-                </button>
-              )}
-
-              {/* Spacer */}
-              <div style={{ flex: 1 }} />
-
-              {/* Track Live Queue */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {/* Primary Action (Full Width) */}
               <a
                 href={`/live-queue?center_id=${booking.procurement_center_id || ''}`}
                 onClick={() => booking.procurement_center_id && localStorage.setItem('lastBookingCenterId', String(booking.procurement_center_id))}
                 style={{
-                  display: 'flex', alignItems: 'center', gap: 6,
-                  padding: '11px 20px', borderRadius: 12,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                  padding: '14px', borderRadius: 14,
                   background: 'linear-gradient(135deg,#16a34a,#15803d)',
-                  color: '#fff', fontWeight: 700, fontSize: 13.5,
+                  color: '#fff', fontWeight: 700, fontSize: 14,
                   textDecoration: 'none',
                   boxShadow: '0 4px 14px rgba(22,163,74,0.35)',
                   transition: 'opacity 0.2s',
+                  width: '100%', boxSizing: 'border-box'
                 }}
               >
-                Track Live Queue <ExternalLink size={14} />
+                Track Live Queue <ExternalLink size={15} />
               </a>
 
-              {/* Close */}
-              <button
-                onClick={() => onClose()}
-                style={{
-                  padding: '11px 18px', borderRadius: 12,
-                  border: 'none', background: 'transparent',
-                  color: '#64748b', fontWeight: 600, fontSize: 13.5, cursor: 'pointer',
-                }}
-              >
-                Close
-              </button>
+              {/* Secondary Actions */}
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button
+                  onClick={() => window.print()}
+                  style={{
+                    flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                    padding: '12px', borderRadius: 12,
+                    border: '1.5px solid #e2e8f0', background: '#fff',
+                    color: '#374151', fontWeight: 600, fontSize: 13.5,
+                    cursor: 'pointer', transition: 'all 0.2s',
+                  }}
+                >
+                  <Printer size={15} /> Print
+                </button>
+
+                {!isFinal && status !== 'Serving' && (
+                  <button
+                    onClick={() => setShowConfirm(true)}
+                    style={{
+                      flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                      padding: '12px', borderRadius: 12,
+                      border: '1.5px solid #fecaca', background: '#fff',
+                      color: '#dc2626', fontWeight: 600, fontSize: 13.5, cursor: 'pointer',
+                    }}
+                  >
+                    Cancel
+                  </button>
+                )}
+
+                <button
+                  onClick={() => onClose()}
+                  style={{
+                    flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    padding: '12px', borderRadius: 12,
+                    border: 'none', background: '#f1f5f9',
+                    color: '#475569', fontWeight: 600, fontSize: 13.5, cursor: 'pointer',
+                  }}
+                >
+                  Close
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -411,6 +412,15 @@ export default function BookingDetailModal({ isOpen, booking, onClose }) {
         @keyframes fadeIn  { from { opacity: 0 }           to { opacity: 1 } }
         @keyframes slideUp { from { transform: translateY(24px); opacity: 0 } to { transform: translateY(0); opacity: 1 } }
         @keyframes spin    { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }
+        
+        /* Hide scrollbar for the modal but keep it scrollable */
+        .agri-modal-scroll::-webkit-scrollbar {
+          display: none;
+        }
+        .agri-modal-scroll {
+          -ms-overflow-style: none;  /* IE and Edge */
+          scrollbar-width: none;  /* Firefox */
+        }
       `}</style>
     </ErrorBoundary>
   )
