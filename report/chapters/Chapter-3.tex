@@ -8,37 +8,16 @@ AgriQueue adopted an Agile Iterative methodology tailored for rapid multi-tier d
 
 \begin{figure}[H]
 \centering
-\begin{tikzpicture}[
-  sprint/.style={rectangle, draw=blue!70!black, fill=blue!8, rounded corners=6pt,
-                 text width=3.4cm, minimum height=1.1cm, align=center, font=\scriptsize\bfseries},
-  phase/.style={rectangle, draw=teal!70!black, fill=teal!8, rounded corners=4pt,
-                text width=3.4cm, minimum height=0.7cm, align=center, font=\tiny\bfseries},
-  arr/.style={->, >=Latex, thick, draw=gray!70!black},
-  lbl/.style={fill=white, inner sep=1.5pt, font=\tiny\bfseries, text=gray!80!black}
-]
-
-% Sprints arranged in a clean 2x2 grid
-\node[sprint] (sp1) at (0, 3.2)   {Sprint 1: Foundation\\(Auth, RBAC, DB Schema)};
-\node[sprint] (sp2) at (6.0, 3.2) {Sprint 2: Core Queues\\(Slots, Booking, SSE Stream)};
-\node[sprint] (sp3) at (6.0, 0.0) {Sprint 3: Operations\\(Staff Verification, Payments)};
-\node[sprint] (sp4) at (0, 0.0)   {Sprint 4: Intelligence\\(Admin Analytics, AI, Push)};
-
-% Iterative arrows
-\draw[arr] (sp1) -- node[lbl, above]{Sprint Goal Met} (sp2);
-\draw[arr] (sp2) -- node[lbl, right]{Capacity Validated} (sp3);
-\draw[arr] (sp3) -- node[lbl, below]{Financials Verified} (sp4);
-\draw[arr] (sp4) -- node[lbl, left]{Iterative Review} (sp1);
-
-\end{tikzpicture}
+\includegraphics[width=\textwidth]{img/sdlc_agile_lifecycle.png}
 \caption{Agile Iterative Sprint Lifecycle for AgriQueue}
 \label{fig:sdlc}
 \end{figure}
 
 \begin{itemize}
-  \item \textbf{Sprint 1 (Weeks 1--2):} Domain modeling, database migrations, JWT authentication, and center/crop configuration.
-  \item \textbf{Sprint 2 (Weeks 3--4):} Slot capacity logic, booking engine, token assignment, and live queue SSE streaming.
-  \item \textbf{Sprint 3 (Weeks 5--6):} Staff operational workflow, weighment deductions, automated net calculation, and payment lifecycle.
-  \item \textbf{Sprint 4 (Weeks 7--8):} HistGBR model training, LangGraph AI command agent, WebPush alerts, and cloud deployment.
+  \item \textbf{Sprint 1 (01--06 Sep 2026):} Domain modeling, database migrations, JWT authentication, and center/crop configuration.
+  \item \textbf{Sprint 2 (07--12 Sep 2026):} Slot capacity logic, booking engine, token assignment, and live queue SSE streaming.
+  \item \textbf{Sprint 3 (13--18 Sep 2026):} Staff operational workflow, weighment deductions, automated net calculation, and payment lifecycle.
+  \item \textbf{Sprint 4 (19--25 Sep 2026):} HistGBR model training, LangGraph AI command agent, WebPush alerts, and cloud deployment.
 \end{itemize}
 
 \section{System Use Cases}
@@ -47,71 +26,7 @@ The platform supports distinct actor interactions across the three operational r
 
 \begin{figure}[H]
 \centering
-\begin{tikzpicture}[
-  actor/.style={rectangle, draw=purple!80!black, fill=purple!10, rounded corners=6pt,
-                text width=2.2cm, minimum height=0.75cm, align=center, font=\scriptsize\bfseries},
-  usecase/.style={rectangle, draw=blue!70!black, fill=blue!6, rounded corners=12pt,
-                  text width=3.0cm, minimum height=0.6cm, align=center, font=\tiny\bfseries},
-  assoc/.style={-, thick, draw=gray!70!black},
-  dep/.style={->, >=Latex, dashed, thick, draw=blue!80!black},
-  lbl/.style={fill=white, inner sep=1.5pt, font=\tiny\bfseries, text=blue!80!black}
-]
-
-% System Boundary Box
-\draw[draw=blue!50!black, dashed, rounded corners=8pt, fill=blue!1, line width=0.8pt] (1.6, -3.8) rectangle (9.4, 7.6);
-\node[anchor=north west, font=\scriptsize\bfseries\color{blue!80!black}] at (1.8, 7.4) {System Boundary: AgriQueue Platform};
-
-% Actors
-\node[actor] (FAR) at (-0.2, 4.8)  {Farmer\\(Producer)};
-\node[actor] (STA) at (-0.2, 1.2)  {Center Staff\\(Operator)};
-\node[actor] (ADM) at (11.0, -1.8) {Admin\\(Supervisor)};
-\node[actor, fill=amber!15, draw=amber!80!black] (EXT) at (11.0, 4.4) {External Services\\(WebPush / ML)};
-
-% Use Cases inside boundary
-\node[usecase] (uc_auth)  at (5.5, 6.6) {Authenticate \& Manage Profile};
-\node[usecase] (uc_disc)  at (3.6, 5.5) {Browse Centers \& Daily Slots};
-\node[usecase] (uc_book)  at (3.6, 4.3) {Book Procurement Slot};
-\node[usecase] (uc_ml)    at (7.4, 4.3) {Predict Wait Time (ML)};
-\node[usecase] (uc_live)  at (3.6, 3.1) {Monitor Live Queue (SSE)};
-
-\node[usecase] (uc_call)  at (3.6, 1.8) {Call Next Queue Token};
-\node[usecase] (uc_weigh) at (3.6, 0.6) {Weigh Produce \& Grade};
-\node[usecase] (uc_pay)   at (7.4, 0.6) {Issue Payment \& Receipt};
-\node[usecase] (uc_disp)  at (5.5, -0.6) {Raise / Resolve Dispute};
-
-\node[usecase] (uc_conf)  at (7.4, -1.8) {Configure Centers \& Slots};
-\node[usecase] (uc_msp)   at (7.4, -2.9) {Set Produce MSP Rates};
-\node[usecase] (uc_ai)    at (3.6, -2.9) {AI Natural Language Queries};
-
-% Actor Associations (Farmer)
-\draw[assoc] (FAR) -- (uc_auth.west);
-\draw[assoc] (FAR) -- (uc_disc.west);
-\draw[assoc] (FAR) -- (uc_book.west);
-\draw[assoc] (FAR) -- (uc_live.west);
-\draw[assoc] (FAR.south east) -- (uc_disp.west);
-
-% Actor Associations (Staff)
-\draw[assoc] (STA.north east) -- (uc_auth.west);
-\draw[assoc] (STA) -- (uc_call.west);
-\draw[assoc] (STA) -- (uc_weigh.west);
-\draw[assoc] (STA) -- (uc_disp.west);
-
-% Actor Associations (Admin)
-\draw[assoc] (ADM.north west) -- (uc_auth.east);
-\draw[assoc] (ADM) -- (uc_conf.east);
-\draw[assoc] (ADM) -- (uc_msp.east);
-\draw[assoc] (ADM.west) -- (uc_ai.east);
-
-% External Services Associations
-\draw[assoc] (EXT.west) -- (uc_ml.east);
-\draw[assoc] (EXT.south west) -- (uc_live.east);
-
-% UML <<include>> and <<extend>> dependencies
-\draw[dep] (uc_book) -- node[lbl, above]{\guillemotleft include\guillemotright} (uc_ml);
-\draw[dep] (uc_weigh) -- node[lbl, above]{\guillemotleft include\guillemotright} (uc_pay);
-\draw[dep] (uc_disp) -- node[lbl, right]{\guillemotleft extend\guillemotright} (uc_pay);
-
-\end{tikzpicture}
+\includegraphics[width=\textwidth]{img/usecase_clean.png}
 \caption{Comprehensive UML Use Case Diagram for AgriQueue Actors and System Boundary}
 \label{fig:usecase}
 \end{figure}

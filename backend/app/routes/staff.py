@@ -17,8 +17,10 @@ from models.push_subscription import PushSubscription
 from models.procurement import ProcurementRecord
 from models.payment import Payment
 from models.payment_profile import PaymentProfile
+from models.slot import Slot
 from payment_utils import create_or_update_payment, mask_destination, payment_status_label
 from routes.notifications import send_push_notification
+from time_utils import parse_time_str
 
 router = APIRouter(
     prefix="/staff",
@@ -343,6 +345,34 @@ async def call_next_farmer(
         )
 
     if next_up:
+        # ── Slot timing window enforcement ──────────────────────────────────
+        slot = await db.scalar(select(Slot).where(Slot.id == next_up.slot_id))
+        if slot:
+            now_time = datetime.now().time()
+            slot_start = parse_time_str(slot.start_time)
+            slot_end   = parse_time_str(slot.end_time)
+
+            if slot_start and now_time < slot_start:
+                # Current time is before the slot window opens
+                raise HTTPException(
+                    status_code=403,
+                    detail=(
+                        f"Cannot call this farmer yet. Their slot window opens at "
+                        f"{slot.start_time}. Please wait until then."
+                    )
+                )
+
+            if slot_end and now_time >= slot_end:
+                # Slot window has already closed
+                raise HTTPException(
+                    status_code=403,
+                    detail=(
+                        f"This farmer's slot window ({slot.start_time} – {slot.end_time}) "
+                        f"has already closed. The booking can no longer be called."
+                    )
+                )
+        # ── End slot window check ────────────────────────────────────────────
+
         next_up.status = "Serving"
         next_up.served_by_staff_id = staff.id
         await db.commit()
@@ -357,10 +387,12 @@ async def call_next_farmer(
                 send_push_notification(sub, {
                     "title": "It's your turn!",
                     "body": f"Token {prefix}-{next_up.token_number:03d} is now being served by {staff.full_name} at {center.name}. Please proceed to the counter.",
-                    "icon": "/logo.png"
+                    "icon": "/logo.png",
+                    "url": "/live-queue",
+                    "type": "alert",
                 })
         except Exception as e:
-            print("Failed to send push notification:", e)
+            print(f"[notify] Failed to send call-next push for farmer {next_up.farmer_id}: {e}")
 
         return {
             "success": True,
@@ -378,6 +410,7 @@ async def call_next_farmer(
 
 
 # ── GET /staff/queue/stream  (SSE) ─────────────────────────────────────────
+
 @router.get("/queue/stream")
 async def stream_staff_queue(
     request: Request,
@@ -676,46 +709,62 @@ async def update_procurement(
         try:
             farmer = await db.scalar(select(Farmer).where(Farmer.id == booking.farmer_id))
             center = await db.scalar(select(ProcurementCenter).where(ProcurementCenter.id == booking.procurement_center_id))
+            # Filter by role="farmer" to avoid sending to staff subscriptions
             subs = (await db.scalars(
-                select(PushSubscription).where(PushSubscription.user_id == booking.farmer_id)
+                select(PushSubscription).where(
+                    PushSubscription.user_id == booking.farmer_id,
+                    PushSubscription.role == "farmer",
+                )
             )).all()
 
-            prefix = center.name.split()[-1][0].upper() if center and center.name else "A"
-            token_label = f"{prefix}-{booking.token_number:03d}" if booking.token_number else str(booking.id)
-            produce_label = booking.produce or "produce"
-            qty = procurement.net_weight_kg if procurement else booking.quantity_kg or 0
-            amount = booking.total_price or 0
-            center_name = center.name if center else "the center"
-            farmer_name = farmer.full_name if farmer else "Farmer"
-            settlement_date = payment.expected_settlement_date.strftime("%d %b")
-
-            if auto_credit:
-                notif_payload = {
-                    "title": "💰 Payment Credited!",
-                    "body": (
-                        f"Hi {farmer_name}, procurement for token {token_label} "
-                        f"({qty} kg of {produce_label}) is complete. "
-                        f"₹{amount:,} has been credited to your account! Ref: {tx_ref}."
-                    ),
-                    "icon": "/logo.png",
-                    "badge": "/logo.png",
-                }
+            if not subs:
+                print(f"[notify] No push subscriptions found for farmer {booking.farmer_id} — skipping push")
             else:
-                notif_payload = {
-                    "title": "✅ Procurement Complete!",
-                    "body": (
-                        f"Hi {farmer_name}, your procurement for token {token_label} "
-                        f"({qty} kg of {produce_label}) has been completed at {center_name}. "
-                        f"Total: ₹{amount:,}; settlement is expected by {settlement_date}."
-                    ),
-                    "icon": "/logo.png",
-                    "badge": "/logo.png",
-                }
+                prefix = center.name.split()[-1][0].upper() if center and center.name else "A"
+                token_label = f"{prefix}-{booking.token_number:03d}" if booking.token_number else str(booking.id)
+                produce_label = booking.produce or "produce"
+                qty = procurement.net_weight_kg if procurement else booking.quantity_kg or 0
+                amount = booking.total_price or 0
+                center_name = center.name if center else "the center"
+                farmer_name = farmer.full_name if farmer else "Farmer"
+                # Guard: expected_settlement_date may be None on edge cases
+                settle_dt = getattr(payment, "expected_settlement_date", None)
+                settlement_date = settle_dt.strftime("%d %b") if settle_dt else "soon"
 
-            for sub in subs:
-                send_push_notification(sub, notif_payload)
+                if auto_credit:
+                    notif_payload = {
+                        "title": "💰 Payment Credited!",
+                        "body": (
+                            f"Hi {farmer_name}, procurement for token {token_label} "
+                            f"({qty} kg of {produce_label}) is complete. "
+                            f"₹{amount:,} has been credited to your account! Ref: {tx_ref}."
+                        ),
+                        "icon": "/logo.png",
+                        "badge": "/logo.png",
+                        "url": "/payments",
+                        "type": "payment",
+                    }
+                else:
+                    notif_payload = {
+                        "title": "✅ Procurement Complete!",
+                        "body": (
+                            f"Hi {farmer_name}, your procurement for token {token_label} "
+                            f"({qty} kg of {produce_label}) has been completed at {center_name}. "
+                            f"Total: ₹{amount:,}; settlement is expected by {settlement_date}."
+                        ),
+                        "icon": "/logo.png",
+                        "badge": "/logo.png",
+                        "url": "/payments",
+                        "type": "success",
+                    }
+
+                sent = 0
+                for sub in subs:
+                    if send_push_notification(sub, notif_payload):
+                        sent += 1
+                print(f"[notify] Procurement-complete push sent to {sent}/{len(subs)} device(s) for farmer {booking.farmer_id}")
         except Exception as notify_err:
-            print(f"[notify] Failed to push farmer notification: {notify_err}")
+            print(f"[notify] Failed to push procurement-complete notification for booking {booking_id}: {notify_err}")
 
     return {
         "success": True,

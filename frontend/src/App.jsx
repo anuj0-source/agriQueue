@@ -148,17 +148,19 @@ export default function App() {
   const path = useCurrentPath()
   
   useEffect(() => {
-    // Automatically register push notifications for farmers
+    // Silent re-sync on route changes: refreshes an existing subscription with
+    // the backend. Interactive prompting is handled in FarmerDashboard after login.
     try {
       const stored = localStorage.getItem('currentUser')
       if (stored) {
         const u = JSON.parse(stored)
         if (!u.role || u.role === 'farmer') {
-          registerPushNotifications()
+          registerPushNotifications(false) // non-interactive — won't prompt
         }
       }
     } catch {}
   }, [path])
+
 
   // Basic query param stripping and trailing slash normalization for routing
   const rawPath = path.split('?')[0]

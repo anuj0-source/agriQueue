@@ -25,6 +25,10 @@ self.addEventListener('push', function (event) {
     }
 
     const title = data.title || 'AgriQueue Notification';
+    // Use the url and type fields sent by the backend for deep-linking
+    const targetUrl = data.url || '/';
+    const notifType = data.type || 'success';
+
     const options = {
         body: data.body || '',
         icon: data.icon || '/logo.png',
@@ -34,13 +38,15 @@ self.addEventListener('push', function (event) {
         renotify: true,
         requireInteraction: true,
         data: {
-            url: data.url || '/'
+            url: targetUrl,
+            type: notifType
         }
     };
 
     event.waitUntil(
         Promise.all([
             self.registration.showNotification(title, options),
+            // Forward to all open app windows so the in-app panel updates immediately
             self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
                 for (const client of clientList) {
                     client.postMessage({
@@ -48,7 +54,9 @@ self.addEventListener('push', function (event) {
                         notification: {
                             title: title,
                             message: options.body,
-                            type: 'success'
+                            // Pass real type from backend (e.g. 'payment', 'success', 'alert')
+                            type: notifType,
+                            url: targetUrl
                         }
                     });
                 }
@@ -63,10 +71,16 @@ self.addEventListener('notificationclick', function (event) {
 
     event.waitUntil(
         clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+            // Try to focus an existing window first
             for (const client of clientList) {
-                if ('focus' in client) {
-                    client.navigate(targetUrl);
-                    return client.focus();
+                if (client.url && new URL(client.url).pathname !== undefined) {
+                    if ('navigate' in client) {
+                        client.navigate(targetUrl);
+                        return client.focus();
+                    }
+                    if ('focus' in client) {
+                        return client.focus();
+                    }
                 }
             }
             if (clients.openWindow) {
@@ -75,3 +89,4 @@ self.addEventListener('notificationclick', function (event) {
         })
     );
 });
+

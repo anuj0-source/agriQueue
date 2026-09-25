@@ -69,15 +69,18 @@ export default function FarmerDashboard() {
     }
   }, [])
 
-  // Push notification setup
+  // Push notification setup — called interactively so the browser prompts
+  // for permission if not yet granted. Without interactive=true the farmer
+  // would silently never receive any procurement/payment push notifications.
   useEffect(() => {
     if (user && (user.role === 'farmer' || !user.role)) {
       const timer = setTimeout(() => {
-        registerPushNotifications()
+        registerPushNotifications(true)
       }, 1500)
       return () => clearTimeout(timer)
     }
   }, [user])
+
 
   const farmerName = user?.full_name || FARMER_PROFILE.name
   const farmerId = user?.farmer_id || 'N/A'

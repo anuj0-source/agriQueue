@@ -38,22 +38,7 @@ export function NotificationProvider({ children }) {
     }
   }, [])
 
-  // Listen for push notifications forwarded by service worker
-  useEffect(() => {
-    if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
-      const handleSwMessage = (event) => {
-        if (event.data?.type === 'PUSH_NOTIFICATION_RECEIVED') {
-          const { title, message, type } = event.data.notification || {}
-          if (message) {
-            addNotification(message, type || 'success', title)
-          }
-        }
-      }
-      navigator.serviceWorker.addEventListener('message', handleSwMessage)
-      return () => navigator.serviceWorker.removeEventListener('message', handleSwMessage)
-    }
-  }, [])
-
+  // Declare addNotification BEFORE the SW useEffect that depends on it
   const addNotification = useCallback((message, type = 'info', title = null) => {
     const notifTitle = title || defaultTitle(type)
     const n = {
@@ -75,6 +60,32 @@ export function NotificationProvider({ children }) {
       }
     }
   }, [])
+
+  // Listen for push notifications forwarded by service worker.
+  // Attached after addNotification is defined so the dependency array is valid.
+  useEffect(() => {
+    if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return
+
+    const handleSwMessage = (event) => {
+      if (event.data?.type === 'PUSH_NOTIFICATION_RECEIVED') {
+        const { title, message, type, url } = event.data.notification || {}
+        if (message) {
+          addNotification(message, type || 'success', title)
+        }
+        // Navigate to the deep-link URL only if the tab is in the foreground
+        // and we're not already on that page, to avoid jarring navigation.
+        if (url && url !== '/' && document.visibilityState === 'visible') {
+          if (window.location.pathname !== url) {
+            window.history.pushState(null, '', url)
+            window.dispatchEvent(new PopStateEvent('popstate'))
+          }
+        }
+      }
+    }
+
+    navigator.serviceWorker.addEventListener('message', handleSwMessage)
+    return () => navigator.serviceWorker.removeEventListener('message', handleSwMessage)
+  }, [addNotification])
 
   const markAllRead = useCallback(() => {
     setNotifications(prev => prev.map(n => ({ ...n, read: true })))
@@ -124,6 +135,7 @@ export function useNotifications() {
 function defaultTitle(type) {
   switch (type) {
     case 'success': return 'Great news!'
+    case 'payment': return '💰 Payment Update'
     case 'warning': return 'Heads up'
     case 'alert':   return 'Action needed'
     case 'error':   return 'Error'

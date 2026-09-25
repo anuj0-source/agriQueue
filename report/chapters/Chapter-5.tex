@@ -13,53 +13,7 @@ AgriQueue is architected as a modular, three-tier cloud platform designed for sc
 
 \begin{figure}[H]
 \centering
-\begin{tikzpicture}[
-  compbox/.style={rectangle, draw=blue!70!black, fill=blue!8, rounded corners=5pt,
-                  text width=2.6cm, minimum height=0.75cm, align=center, font=\scriptsize\bfseries},
-  srvbox/.style={rectangle, draw=teal!70!black, fill=teal!8, rounded corners=5pt,
-                 text width=2.6cm, minimum height=0.75cm, align=center, font=\scriptsize\bfseries},
-  datbox/.style={rectangle, draw=orange!70!black, fill=orange!10, rounded corners=5pt,
-                 text width=2.6cm, minimum height=0.75cm, align=center, font=\scriptsize\bfseries},
-  tierframe/.style={draw=gray!40, dashed, fill=gray!3, rounded corners=6pt},
-  arr/.style={->, >=Latex, thick, draw=gray!70!black},
-  lbl/.style={fill=white, inner sep=2pt, font=\tiny\bfseries, text=gray!80!black}
-]
-
-% Left-margin tier badge pills
-\node[fill=blue!15, draw=blue!70!black, rounded corners=3pt, font=\tiny\bfseries\color{blue!90!black}, inner sep=3pt] at (-2.2, 6.1) {Tier 1: UI};
-\node[fill=teal!15, draw=teal!70!black, rounded corners=3pt, font=\tiny\bfseries\color{teal!90!black}, inner sep=3pt] at (-2.2, 3.4) {Tier 2: App};
-\node[fill=orange!20, draw=orange!70!black, rounded corners=3pt, font=\tiny\bfseries\color{orange!90!black}, inner sep=3pt] at (-2.2, 0.7) {Tier 3: Data};
-
-% Tier 1 Nodes (y = 6.1)
-\node[compbox] (F) at (0, 6.1)    {Farmer Portal\\(Mobile Web)};
-\node[compbox] (S) at (4.2, 6.1)  {Staff Portal\\(Operations)};
-\node[compbox] (A) at (8.4, 6.1)  {Admin Portal\\(Analytics)};
-
-% Tier 2 Nodes (y = 3.4)
-\node[srvbox] (ML)  at (0, 3.4)   {ML Wait Engine\\(scikit-learn)};
-\node[srvbox] (API) at (4.2, 3.4) {FastAPI Server\\(Uvicorn ASGI)};
-\node[srvbox] (AG)  at (8.4, 3.4) {AI Command Agent\\(LangGraph + Gemini)};
-
-% Tier 3 Nodes (y = 0.7)
-\node[datbox] (PUSH) at (0, 0.7)   {WebPush Service\\(Browser VAPID)};
-\node[datbox] (DB)   at (4.2, 0.7) {PostgreSQL 15 DB\\(Managed Cloud)};
-\node[datbox] (GEM)  at (8.4, 0.7) {Gemini 2.5 Flash\\(LLM Cloud API)};
-
-% Connectors Tier 1 -> Tier 2
-\draw[arr] (F.south) -- (API.north west) node[midway, lbl, above=2pt]{HTTPS / SSE};
-\draw[arr] (S.south) -- (API.north) node[midway, lbl]{HTTPS REST};
-\draw[arr] (A.south) -- (API.north east) node[midway, lbl, above=2pt]{HTTPS REST};
-
-% Connectors within Tier 2
-\draw[arr] (API.west) -- (ML.east) node[midway, lbl]{predict()};
-\draw[arr] (API.east) -- (AG.west) node[midway, lbl]{query()};
-
-% Connectors Tier 2 -> Tier 3
-\draw[arr] (API.south) -- (DB.north) node[midway, lbl]{asyncpg (TLS)};
-\draw[arr] (API.south west) -- (PUSH.north east) node[midway, lbl, above=2pt]{VAPID Alert};
-\draw[arr] (AG.south) -- (GEM.north) node[midway, lbl]{API Call};
-
-\end{tikzpicture}
+\includegraphics[width=\textwidth]{img/three_tier_clean.png}
 \caption{AgriQueue Three-Tier Modular System Architecture}
 \label{fig:arch}
 \end{figure}
@@ -106,51 +60,7 @@ The Context Diagram defines the external boundary of the platform, illustrating 
 
 \begin{figure}[H]
 \centering
-\begin{tikzpicture}[
-  proc/.style={circle, draw=teal!80!black, fill=teal!10, text width=3.2cm,
-               minimum height=3.2cm, align=center, font=\scriptsize\bfseries, line width=1pt},
-  entity/.style={rectangle, draw=blue!80!black, fill=blue!8, rounded corners=4pt,
-                 text width=2.4cm, minimum height=0.85cm, align=center, font=\scriptsize\bfseries},
-  ext/.style={rectangle, draw=amber!80!black, fill=amber!12, rounded corners=4pt,
-              text width=2.5cm, minimum height=0.85cm, align=center, font=\scriptsize\bfseries},
-  arr/.style={->, >=Latex, thick, draw=gray!70!black},
-  lbl/.style={fill=white, inner sep=1.2pt, font=\tiny\bfseries, text=gray!80!black}
-]
-
-% Central Process 0.0
-\node[proc] (P0) at (5.5, 3.2) {0.0\\AgriQueue\\Platform\\System};
-
-% External Entities
-\node[entity] (FAR) at (0, 3.2)   {Farmer\\(Producer)};
-\node[entity] (STA) at (11.0, 3.2) {Center Staff\\(Operator)};
-\node[entity] (ADM) at (5.5, 7.2)  {Administrator\\(Supervisor)};
-\node[ext]    (EXT) at (5.5, -0.8) {External Services\\(WebPush / Gemini)};
-
-% Data Flows Farmer <-> P0
-\draw[arr] (FAR.north east) -- ++(0.7, 0.4) -| (P0.160)
-  node[pos=0.25, lbl, above]{Booking Req., Produce Specs};
-\draw[arr] (P0.200) -- ++(-1.4, -0.4) |- (FAR.south east)
-  node[pos=0.75, lbl, below]{Token, Wait Time, Receipts};
-
-% Data Flows Staff <-> P0
-\draw[arr] (STA.north west) -- ++(-0.7, 0.4) -| (P0.20)
-  node[pos=0.25, lbl, above]{Scale Weight, Deductions};
-\draw[arr] (P0.340) -- ++(1.4, -0.4) |- (STA.south west)
-  node[pos=0.75, lbl, below]{Queue Roster, Net MSP Payable};
-
-% Data Flows Admin <-> P0
-\draw[arr] ([xshift=-8pt]ADM.south) -- ([xshift=-8pt]P0.north)
-  node[midway, lbl, left=2pt]{Center Config, MSP Schedules};
-\draw[arr] ([xshift=8pt]P0.north) -- ([xshift=8pt]ADM.south)
-  node[midway, lbl, right=2pt]{Procurement Metrics, Audit Logs};
-
-% Data Flows External <-> P0
-\draw[arr] ([xshift=-8pt]P0.south) -- ([xshift=-8pt]EXT.north)
-  node[midway, lbl, left=2pt]{Push Alert, NL Queries};
-\draw[arr] ([xshift=8pt]EXT.north) -- ([xshift=8pt]P0.south)
-  node[midway, lbl, right=2pt]{Delivery Status, AI Answers};
-
-\end{tikzpicture}
+\includegraphics[width=\textwidth]{img/dfd_l0_clean.png}
 \caption{DFD Level 0: AgriQueue Context-Level Data Flow Diagram}
 \label{fig:dfd0}
 \end{figure}
@@ -338,54 +248,7 @@ The relational data model comprises 12 entities structured to maintain referenti
 
 \begin{figure}[H]
 \centering
-\begin{tikzpicture}[
-  ent/.style={rectangle, draw=blue!70!black, fill=blue!6, rounded corners=4pt,
-              text width=2.7cm, minimum height=0.7cm, align=center, font=\scriptsize\bfseries},
-  arr/.style={->, >=Latex, semithick, draw=gray!70!black},
-  lbl/.style={fill=white, inner sep=1.5pt, font=\tiny\bfseries, text=gray!80!black}
-]
-
-% Row 1 (y = 5.4)
-\node[ent] (FAR) at (0, 5.4)   {Farmer\\(\texttt{farmers})};
-\node[ent] (BOK) at (4.5, 5.4) {Booking\\(\texttt{bookings})};
-\node[ent] (CTR) at (9.0, 5.4) {Procurement Center\\(\texttt{centers})};
-
-% Row 2 (y = 3.6)
-\node[ent] (PPR) at (0, 3.6)   {Payment Profile\\(\texttt{payment\_profiles})};
-\node[ent] (REC) at (4.5, 3.6) {Procurement Record\\(\texttt{records})};
-\node[ent] (SLT) at (9.0, 3.6) {Time Slot\\(\texttt{slots})};
-
-% Row 3 (y = 1.8)
-\node[ent] (PSH) at (0, 1.8)   {Push Subscription\\(\texttt{push\_subs})};
-\node[ent] (PAY) at (4.5, 1.8) {Payment Record\\(\texttt{payments})};
-\node[ent] (PRD) at (9.0, 1.8) {Produce Type\\(\texttt{produces})};
-
-% Row 4 (y = 0.0)
-\node[ent] (ADM) at (0, 0.0)   {Admin User\\(\texttt{admins})};
-\node[ent] (AUD) at (4.5, 0.0) {Agent Audit\\(\texttt{agent\_audit})};
-\node[ent] (STA) at (9.0, 0.0) {Center Staff\\(\texttt{staff})};
-
-% Horizontal relations
-\draw[arr] (FAR) -- (BOK) node[midway, lbl]{1 : N (books)};
-\draw[arr] (CTR) -- (BOK) node[midway, lbl]{1 : N (hosts)};
-
-% Vertical relations - Col 1
-\draw[arr] (FAR) -- (PPR) node[midway, lbl]{1 : 1};
-\draw[arr] (FAR.south west) -- ++(-0.6,0) |- (PSH.west) node[pos=0.25, lbl]{1 : N};
-
-% Vertical relations - Col 2
-\draw[arr] (BOK) -- (REC) node[midway, lbl]{1 : 1 (yields)};
-\draw[arr] (REC) -- (PAY) node[midway, lbl]{1 : 1 (creates)};
-
-% Vertical relations - Col 3
-\draw[arr] (CTR) -- (SLT) node[midway, lbl]{1 : N (schedules)};
-\draw[arr] (CTR.south east) -- ++(0.6,0) |- (PRD.east) node[pos=0.25, lbl]{1 : N (offers)};
-\draw[arr] (CTR.east) -- ++(1.1,0) |- (STA.east) node[pos=0.25, lbl]{1 : N (employs)};
-
-% Cross relations
-\draw[arr] (STA.west) -- ++(-1.2,0) |- (REC.east) node[pos=0.25, lbl]{verifies};
-
-\end{tikzpicture}
+\includegraphics[width=\textwidth]{img/erd_clean.png}
 \caption{AgriQueue Relational Entity Relationship Diagram}
 \label{fig:erd}
 \end{figure}
@@ -438,66 +301,7 @@ The farmer booking workflow guides the agricultural producer from authentication
 
 \begin{figure}[H]
 \centering
-\begin{tikzpicture}[
-  node distance=0.65cm,
-  stepbox/.style={
-    rectangle, draw=blue!75!black, fill=blue!6, rounded corners=5pt,
-    text width=6.5cm, minimum height=0.76cm, align=center,
-    font=\small\bfseries, line width=1.0pt, inner ysep=4pt
-  },
-  decbox/.style={
-    diamond, draw=amber!85!black, fill=amber!15, aspect=2.2,
-    text width=2.6cm, minimum height=0.88cm, align=center,
-    font=\small\bfseries, line width=1.0pt, inner sep=2pt
-  },
-  termbox/.style={
-    rectangle, draw=emerald!75!black, fill=emerald!12, rounded corners=8pt,
-    text width=6.5cm, minimum height=0.76cm, align=center,
-    font=\small\bfseries, line width=1.0pt, inner ysep=4pt
-  },
-  altbox/.style={
-    rectangle, draw=red!75!black, fill=red!7, rounded corners=5pt,
-    text width=3.2cm, minimum height=0.82cm, align=center,
-    font=\footnotesize\bfseries, line width=1.0pt, inner sep=4pt
-  },
-  arr/.style={
-    -{Latex[length=3.4mm, width=2.4mm]}, line width=1.35pt, draw=blue!85!black
-  },
-  recirc/.style={
-    -{Latex[length=3.0mm, width=2.2mm]}, line width=1.25pt, draw=red!80!black
-  },
-  lbl/.style={
-    fill=white, inner sep=1.8pt, font=\scriptsize\bfseries, text=black!85
-  }
-]
-
-\node[termbox] (st) {Start: Access AgriQueue};
-\node[stepbox, below=of st] (lg) {Login via Mobile \& Password};
-\node[stepbox, below=of lg] (br) {Browse Centers \& Crops};
-\node[stepbox, below=of br] (sl) {Select Date \& View Slot Grid};
-\node[decbox, below=0.75cm of sl]  (av) {Slot Has\\Capacity?};
-\node[altbox, right=1.2cm of av]   (fl) {Display Slot Full /\\Select Other Date};
-
-\node[stepbox, below=0.75cm of av] (in) {Enter Produce, Qty \& Grade};
-\node[stepbox, below=of in] (ml) {ML Predicts Wait Time (mins)};
-\node[stepbox, below=of ml] (tk) {Assign Daily Token (e.g. J-014)};
-\node[termbox, below=of tk] (qu) {Stream Live Queue via SSE};
-
-% Flow connections
-\draw[arr] (st.south) -- (lg.north);
-\draw[arr] (lg.south) -- (br.north);
-\draw[arr] (br.south) -- (sl.north);
-\draw[arr] (sl.south) -- (av.north);
-
-\draw[recirc] (av.east) -- node[lbl, above=1pt]{No} (fl.west);
-\draw[recirc] (fl.north) |- (sl.east);
-
-\draw[arr] (av.south) -- node[lbl, midway, right=5pt]{Yes} (in.north);
-\draw[arr] (in.south) -- (ml.north);
-\draw[arr] (ml.south) -- (tk.north);
-\draw[arr] (tk.south) -- (qu.north);
-
-\end{tikzpicture}
+\includegraphics[width=0.58\textwidth]{img/flowchart_clean.png}
 \caption{Farmer Slot Booking and Queue Progression Flowchart}
 \label{fig:bookflow}
 \end{figure}
@@ -515,41 +319,7 @@ The center operator utilizes an operational dashboard to systematically verify p
 
 \begin{figure}[H]
 \centering
-\begin{tikzpicture}[
-  node distance=0.68cm,
-  stepbox/.style={
-    rectangle, draw=teal!80!black, fill=teal!7, rounded corners=6pt,
-    text width=6.8cm, minimum height=0.78cm, align=center,
-    font=\small\bfseries, line width=1.0pt, inner ysep=5pt
-  },
-  termbox/.style={
-    rectangle, draw=emerald!75!black, fill=emerald!12, rounded corners=9pt,
-    text width=6.8cm, minimum height=0.78cm, align=center,
-    font=\small\bfseries, line width=1.0pt, inner ysep=5pt
-  },
-  arr/.style={
-    -{Latex[length=3.4mm, width=2.4mm]}, line width=1.35pt, draw=teal!85!black
-  }
-]
-
-\node[termbox] (s1) {Staff Login \& Select Center};
-\node[stepbox, below=of s1] (s2) {View Active Queue Dashboard};
-\node[stepbox, below=of s2] (s3) {Call Next Token\\(Status $\to$ Serving)};
-\node[stepbox, below=of s3] (s4) {Weigh Truck / Bags\\(Gross Weight)};
-\node[stepbox, below=of s4] (s5) {Input Deductions,\\Grade \& Moisture \%};
-\node[stepbox, below=of s5] (s6) {System Computes Net\\Weight \& Payable};
-\node[stepbox, below=of s6] (s7) {Farmer Reviews\\\& Signs Receipt};
-\node[termbox, below=of s7] (s8) {Mark Completed $\to$\\Payment Scheduled};
-
-\draw[arr] (s1.south) -- (s2.north);
-\draw[arr] (s2.south) -- (s3.north);
-\draw[arr] (s3.south) -- (s4.north);
-\draw[arr] (s4.south) -- (s5.north);
-\draw[arr] (s5.south) -- (s6.north);
-\draw[arr] (s6.south) -- (s7.north);
-\draw[arr] (s7.south) -- (s8.north);
-
-\end{tikzpicture}
+\includegraphics[width=0.58\textwidth]{img/staff_flow_clean.png}
 \caption{Staff Procurement Physical Verification and Billing Flow}
 \label{fig:staffflow}
 \end{figure}
