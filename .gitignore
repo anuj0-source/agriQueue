@@ -21,3 +21,9 @@ dist/
 Thumbs.db
 .vscode/
 .idea/
+
+# Reports and archives
+report/
+*.zip
+report.zip
+

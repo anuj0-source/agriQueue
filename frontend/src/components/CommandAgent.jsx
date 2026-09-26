@@ -458,10 +458,10 @@ export default function CommandAgent({ userRole = 'farmer' }) {
           >
             <div className="fab-glow-ring" />
             <div className="fab-icon-wrap">
-              <Bot size={22} className="fab-bot-icon" />
+              <Bot size={19} className="fab-bot-icon" />
               <span className="fab-status-dot" />
             </div>
-            <span className="fab-label">AgriQueue Copilot</span>
+            <span className="fab-label">Copilot</span>
             <span className="fab-kbd-badge">Ctrl+K</span>
           </button>
         </div>

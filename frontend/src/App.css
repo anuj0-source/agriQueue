@@ -11217,17 +11217,17 @@ input:-webkit-autofill:active {
   position: relative;
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 11px 20px;
+  gap: 7px;
+  padding: 8px 13px;
   background: linear-gradient(135deg, #052e16 0%, #065f46 60%, #047857 100%);
   color: #ffffff;
   border: 1px solid rgba(52, 211, 153, 0.25);
   border-radius: 9999px;
-  box-shadow: 0 12px 32px -6px rgba(6, 95, 70, 0.5), 0 2px 8px rgba(0,0,0,0.14), inset 0 1px 0 rgba(255,255,255,0.1);
+  box-shadow: 0 10px 24px -4px rgba(6, 95, 70, 0.45), 0 2px 6px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.1);
   cursor: pointer;
   font-family: inherit;
-  font-weight: 700;
-  font-size: 13.5px;
+  font-weight: 600;
+  font-size: 13px;
   letter-spacing: -0.1px;
   transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
   outline: none;
@@ -11270,11 +11270,11 @@ input:-webkit-autofill:active {
 .fab-label { letter-spacing: -0.2px; color: #d1fae5; }
 .fab-kbd-badge {
   display: inline-block;
-  font-size: 10px; font-weight: 600;
-  padding: 2px 6px;
+  font-size: 9px; font-weight: 600;
+  padding: 1.5px 5px;
   background: rgba(0,0,0,0.25);
   border: 1px solid rgba(255,255,255,0.12);
-  border-radius: 5px;
+  border-radius: 4px;
   color: rgba(255,255,255,0.7);
 }
 
