@@ -222,7 +222,17 @@ async def get_admin_dashboard(
                 "status": b.status,
             })
 
-    # 6. Center Performance (Real Booked Quantity in Timeframe)
+    # 6. Center Performance — compare against timeframe-scaled capacity so % is meaningful
+    # for all views (Today, Last 7 Days, Last 30 Days, This Year)
+    if timeframe == "Today":
+        timeframe_days = 1
+    elif timeframe == "Last 7 Days":
+        timeframe_days = 7
+    elif timeframe == "Last 30 Days":
+        timeframe_days = 30
+    else:  # This Year
+        timeframe_days = (today - date(today.year, 1, 1)).days + 1
+
     centers_db = (await db.scalars(select(ProcurementCenter))).all()
     center_performance = []
     for c in centers_db:
@@ -234,12 +244,17 @@ async def get_admin_dashboard(
             select(func.coalesce(func.sum(Booking.quantity_kg), 0)).where(*center_booking_filters)
         )) or 0
 
-        cap = c.daily_capacity or 1000
-        perf = round((actual_booked / max(cap, 1)) * 100)
+        daily_cap_kg = c.daily_capacity or 1000
+        # Total capacity for the whole timeframe period
+        total_cap_kg = daily_cap_kg * timeframe_days
+        perf = round((actual_booked / max(total_cap_kg, 1)) * 100)
         center_performance.append({
             "name": c.name,
             "performance": min(perf, 100),
-            "total_slots": cap,
+            "daily_capacity_q": daily_cap_kg // 100,  # daily cap in quintals for display
+            "booked_q": actual_booked // 100,         # booked in quintals for display
+            # Keep legacy key so frontend doesn't break
+            "total_slots": daily_cap_kg // 100,
             "booked": actual_booked
         })
 
@@ -266,6 +281,8 @@ async def get_admin_centers(db: AsyncSession = Depends(get_db)):
     result = []
     for c in centers:
         utilization = round((c.current_capacity / max(c.daily_capacity, 1)) * 100)
+        daily_q = c.daily_capacity / 100
+        curr_q = c.current_capacity / 100
         result.append({
             "id": c.id,
             "name": c.name,
@@ -273,8 +290,8 @@ async def get_admin_centers(db: AsyncSession = Depends(get_db)):
             "district": c.district,
             "village": c.village,
             "address": c.address,
-            "daily_capacity": c.daily_capacity,
-            "current_capacity": c.current_capacity,
+            "daily_capacity": int(daily_q) if daily_q.is_integer() else round(daily_q, 1),
+            "current_capacity": int(curr_q) if curr_q.is_integer() else round(curr_q, 1),
             "utilization": utilization,
             "opening_time": c.opening_time,
             "closing_time": c.closing_time,
@@ -288,15 +305,37 @@ async def get_admin_center_details(center_id: int, db: AsyncSession = Depends(ge
     center = await db.get(ProcurementCenter, center_id)
     if not center:
         raise HTTPException(status_code=404, detail="Center not found")
-        
+
     from models.slot import Slot
     slots = (await db.scalars(select(Slot).where(Slot.center_id == center_id).order_by(Slot.start_time))).all()
-    
+
     from models.produce import Produce
     produces = (await db.scalars(select(Produce).where(Produce.center_id == center_id))).all()
-    
-    utilization = round((center.current_capacity / max(center.daily_capacity, 1)) * 100)
-    
+
+    # Live today booked kg per slot — don't trust the stale booked_count column
+    today = date.today()
+    slot_ids = [s.id for s in slots]
+    live_booked_kg: dict[int, int] = {}
+    if slot_ids:
+        live_res = (await db.execute(
+            select(Booking.slot_id, func.coalesce(func.sum(Booking.quantity_kg), 0))
+            .where(
+                Booking.slot_id.in_(slot_ids),
+                func.date(Booking.booked_at) == today,
+                Booking.status.notin_(["Cancelled"])
+            )
+            .group_by(Booking.slot_id)
+        )).all()
+        live_booked_kg = {row[0]: int(row[1]) for row in live_res}
+
+    # Current capacity is today's live total booked (not the stale DB column)
+    live_current_kg = sum(live_booked_kg.values())
+    utilization = round((live_current_kg / max(center.daily_capacity, 1)) * 100)
+
+    def to_q(val_kg):
+        q = val_kg / 100
+        return int(q) if q == int(q) else round(q, 1)
+
     return {
         "id": center.id,
         "name": center.name,
@@ -304,9 +343,9 @@ async def get_admin_center_details(center_id: int, db: AsyncSession = Depends(ge
         "district": center.district,
         "village": center.village,
         "address": center.address,
-        "daily_capacity": center.daily_capacity / 100,
-        "current_capacity": center.current_capacity / 100,
-        "utilization": utilization,
+        "daily_capacity": to_q(center.daily_capacity),
+        "current_capacity": to_q(live_current_kg),
+        "utilization": min(utilization, 100),
         "opening_time": center.opening_time,
         "closing_time": center.closing_time,
         "status": center.status,
@@ -317,9 +356,9 @@ async def get_admin_center_details(center_id: int, db: AsyncSession = Depends(ge
             "id": s.id,
             "start_time": s.start_time,
             "end_time": s.end_time,
-            "capacity": s.capacity,
-            "booked_count": s.booked_count,
-            "status": s.status,
+            "capacity": to_q(s.capacity),
+            "booked_count": to_q(live_booked_kg.get(s.id, 0)),
+            "status": "Full" if live_booked_kg.get(s.id, 0) >= s.capacity else s.status,
         } for s in slots],
         "crops": [{
             "id": p.id,
@@ -337,7 +376,7 @@ async def create_admin_center(data: Dict[str, Any], db: AsyncSession = Depends(g
         village=data.get("village", "Mandi Village"),
         address=data.get("address", "Main Market Yard"),
         pincode=int(data.get("pincode", 201301)),
-        daily_capacity=int(data.get("daily_capacity", 150)) * 100,
+        daily_capacity=int(data.get("daily_capacity", 15)) * 100,
         current_capacity=0,
         opening_time=data.get("opening_time", "08:00 AM"),
         closing_time=data.get("closing_time", "06:00 PM"),
@@ -369,11 +408,13 @@ async def create_admin_center(data: Dict[str, Any], db: AsyncSession = Depends(g
 @router.post("/slots")
 async def create_admin_slot(data: Dict[str, Any], db: AsyncSession = Depends(get_db)):
     from models.slot import Slot
+    raw_cap = int(data.get("capacity", 5))
+    capacity_kg = raw_cap * 100
     new_slot = Slot(
         center_id=int(data["center_id"]),
         start_time=data["start_time"],
         end_time=data["end_time"],
-        capacity=int(data.get("capacity", 30)),
+        capacity=capacity_kg,
         booked_count=0,
         status=data.get("status", "Available"),
         created_at=datetime.now(),
@@ -391,7 +432,9 @@ async def update_admin_slot(slot_id: int, data: Dict[str, Any], db: AsyncSession
         return {"success": False, "message": "Slot not found"}
     if "start_time" in data: slot.start_time = data["start_time"]
     if "end_time" in data: slot.end_time = data["end_time"]
-    if "capacity" in data: slot.capacity = int(data["capacity"])
+    if "capacity" in data:
+        raw_cap = int(data["capacity"])
+        slot.capacity = raw_cap * 100
     if "status" in data: slot.status = data["status"]
     await db.commit()
     return {"success": True, "message": "Slot updated"}
@@ -440,13 +483,25 @@ async def get_admin_slots(
         query = query.where(Slot.center_id == center_id)
 
     rows = (await db.execute(query)).all()
-    
-    # Fetch the latest booking date for each slot
+
+    # Fetch latest booking date per slot (for display)
     booking_dates = (await db.execute(
         select(Booking.slot_id, func.max(Booking.booked_at))
         .group_by(Booking.slot_id)
     )).all()
     date_map = {row[0]: row[1] for row in booking_dates}
+
+    # Live today booked kg per slot — avoids reading the stale booked_count column
+    today = date.today()
+    live_booked_res = (await db.execute(
+        select(Booking.slot_id, func.coalesce(func.sum(Booking.quantity_kg), 0))
+        .where(
+            func.date(Booking.booked_at) == today,
+            Booking.status.notin_(["Cancelled"])
+        )
+        .group_by(Booking.slot_id)
+    )).all()
+    live_booked_kg = {row[0]: int(row[1]) for row in live_booked_res}
 
     result = []
     for s, c in rows:
@@ -458,16 +513,21 @@ async def get_admin_slots(
         else:
             display_date = "-"
 
+        cap_q = s.capacity // 100
+        booked_today_kg = live_booked_kg.get(s.id, 0)
+        booked_q = booked_today_kg // 100
+        avail_q = max(0, cap_q - booked_q)
+
         result.append({
             "id": s.id,
             "center_id": c.id,
             "center_name": c.name,
             "date": display_date,
             "time": f"{s.start_time} - {s.end_time}",
-            "capacity": s.capacity,
-            "booked_count": s.booked_count,
-            "available": max(0, s.capacity - s.booked_count),
-            "status": s.status,
+            "capacity": cap_q,
+            "booked_count": booked_q,
+            "available": avail_q,
+            "status": "Full" if avail_q <= 0 else s.status,
         })
     return result
 
@@ -589,7 +649,8 @@ async def update_admin_center(center_id: int, data: Dict[str, Any], db: AsyncSes
 
     # Update fields
     if "daily_capacity" in data:
-        center.daily_capacity = int(data["daily_capacity"])
+        raw_cap = int(data["daily_capacity"])
+        center.daily_capacity = raw_cap * 100
     if "status" in data:
         center.status = data["status"]
     if "opening_time" in data:

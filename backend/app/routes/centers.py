@@ -57,19 +57,23 @@ async def list_centers(
     slots_result = await db.scalars(select(Slot))
     all_slots = slots_result.all()
     
-    center_available_today = {}
+    center_available_today_kg = {}
     for s in all_slots:
         try:
             slot_end = datetime.strptime(s.end_time, "%H:%M").time()
             if slot_end > now_time:
                 booked_kg = today_slot_bookings.get(s.id, 0)
-                avail = max(0, s.capacity - booked_kg)
-                center_available_today[s.center_id] = center_available_today.get(s.center_id, 0) + avail
+                avail_kg = max(0, s.capacity - booked_kg)
+                center_available_today_kg[s.center_id] = center_available_today_kg.get(s.center_id, 0) + avail_kg
         except Exception:
             pass
 
     response = []
     for c in centers:
+        rem_cap_kg = max(0, c.daily_capacity - c.current_capacity)
+        avail_kg = min(center_available_today_kg.get(c.id, 0), rem_cap_kg)
+        avail_quintals = int(avail_kg / 100)
+
         c_dict = {
             "id": c.id,
             "name": c.name,
@@ -82,14 +86,14 @@ async def list_centers(
             "closing_time": c.closing_time,
             "address": c.address,
             "pincode": c.pincode,
-            "daily_capacity": c.daily_capacity,
-            "current_capacity": c.current_capacity,
+            "daily_capacity": c.daily_capacity // 100,
+            "current_capacity": c.current_capacity // 100,
             "status": c.status,
             "crops": [
                 {"id": p.id, "name": p.produce_name, "price_per_kg": p.price_per_kg} 
                 for p in all_produces if p.center_id == c.id
             ],
-            "available_slots": int(center_available_today.get(c.id, 0))
+            "available_slots": avail_quintals
         }
         response.append(c_dict)
         
@@ -146,8 +150,8 @@ async def get_center_slots(
     slots = (await db.scalars(select(Slot).where(Slot.center_id == center_id).order_by(Slot.start_time))).all()
     for s in slots:
         booked_kg = slot_booked_kg.get(s.id, 0)
-        available = max(0, s.capacity - booked_kg)
-        available_quintals = int(available / 100)
+        available_kg = max(0, s.capacity - booked_kg)
+        available_quintals = int(available_kg / 100)
 
         # Enforce expiration check for past dates or today's passed slots
         if is_slot_expired(target_date, s.end_time):

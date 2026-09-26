@@ -22,8 +22,49 @@ from ml.predictor import predict_queue_wait_time
 from services.agent_nlu import AgentNLU
 from time_utils import is_slot_expired, parse_time_str, format_time_12h
 
-# In-memory staging storage for pending user confirmations (expires after 10 mins)
-STAGED_ACTIONS: Dict[str, Dict[str, Any]] = {}
+# ── In-memory staging storage with TTL-based auto-expiry (10 minutes) ─────────
+_STAGED_ACTIONS_STORE: Dict[str, Dict[str, Any]] = {}
+
+STAGED_ACTIONS_TTL_SECONDS = 600  # 10 minutes
+
+class _StagedActionsProxy:
+    """Proxy dict that auto-purges entries older than TTL on every access."""
+
+    def _purge_expired(self):
+        cutoff = datetime.now() - timedelta(seconds=STAGED_ACTIONS_TTL_SECONDS)
+        expired = [k for k, v in _STAGED_ACTIONS_STORE.items()
+                   if isinstance(v.get("created_at"), datetime) and v["created_at"] < cutoff]
+        for k in expired:
+            _STAGED_ACTIONS_STORE.pop(k, None)
+        if expired:
+            print(f"[StagedActions] Purged {len(expired)} expired action(s): {expired}")
+
+    def __contains__(self, key):
+        self._purge_expired()
+        return key in _STAGED_ACTIONS_STORE
+
+    def __getitem__(self, key):
+        self._purge_expired()
+        return _STAGED_ACTIONS_STORE[key]
+
+    def __setitem__(self, key, value):
+        if "created_at" not in value:
+            value = {**value, "created_at": datetime.now()}
+        _STAGED_ACTIONS_STORE[key] = value
+
+    def pop(self, key, *args):
+        self._purge_expired()
+        return _STAGED_ACTIONS_STORE.pop(key, *args)
+
+    def items(self):
+        self._purge_expired()
+        return list(_STAGED_ACTIONS_STORE.items())
+
+    def __len__(self):
+        return len(_STAGED_ACTIONS_STORE)
+
+STAGED_ACTIONS = _StagedActionsProxy()
+
 
 def format_token(center_name: str, token_num: int) -> str:
     parts = center_name.split() if center_name else []
@@ -48,10 +89,16 @@ STAFF_INTENTS = {
     "staff_waiting_queue", "staff_today_bookings", "staff_completed_procurements",
     "staff_pending_payments", "staff_who_is_next", "staff_serve_next"
 }
+ADMIN_INTENTS = {
+    "admin_center_summary", "admin_pending_payments_all", "admin_farmer_search"
+}
 UNIVERSAL_INTENTS = {"confirm_action", "reject_action", "greeting", "help", "general_qa", "unknown"}
 
 def validate_rbac(role: str, intent: str) -> Optional[Dict[str, str]]:
     if intent in UNIVERSAL_INTENTS:
+        return None
+    # Admin can do everything
+    if role == "admin":
         return None
     if role == "staff" and intent in FARMER_INTENTS:
         return {
@@ -64,6 +111,18 @@ def validate_rbac(role: str, intent: str) -> Optional[Dict[str, str]]:
             "en": "Staff actions (like serving the next farmer) require staff credentials.",
             "hi": "कतार सेवा कमांड केवल केंद्र कर्मचारियों के लिए उपलब्ध हैं।",
             "hinglish": "Yeh action sirf mandi staff ke liye allowed hai."
+        }
+    if role == "farmer" and intent in ADMIN_INTENTS:
+        return {
+            "en": "This report is only accessible to administrators.",
+            "hi": "यह रिपोर्ट केवल प्रशासकों के लिए उपलब्ध है।",
+            "hinglish": "Yeh report sirf admin ke liye available hai."
+        }
+    if role == "staff" and intent in ADMIN_INTENTS:
+        return {
+            "en": "This report requires admin-level access.",
+            "hi": "इस रिपोर्ट के लिए प्रशासनिक पहुँच की आवश्यकता है।",
+            "hinglish": "Yeh report admin access maangta hai."
         }
     return None
 
@@ -826,6 +885,20 @@ async def tool_staff_who_is_next(db: AsyncSession, state: Dict[str, Any]) -> Dic
     center_name = center.name if center else "Centre"
     formatted_tok = format_token(center_name, next_booking.token_number)
 
+    # Stage a serve action so staff can confirm directly from the card
+    act_id = f"act_{uuid.uuid4().hex[:8]}"
+    action_data = {
+        "type": "serve_next_farmer",
+        "staff_id": user_id,
+        "booking_id": next_booking.id,
+        "center_id": center_id,
+        "token": formatted_tok,
+        "farmer_name": farmer.full_name if farmer else "Farmer",
+        "lang": lang,
+        "created_at": datetime.now(),
+    }
+    STAGED_ACTIONS[act_id] = action_data
+
     data = {
         "next_token": formatted_tok,
         "next_farmer_name": farmer.full_name if farmer else "Farmer",
@@ -833,17 +906,28 @@ async def tool_staff_who_is_next(db: AsyncSession, state: Dict[str, Any]) -> Dic
         "next_quantity_kg": next_booking.quantity_kg,
     }
     speech = AgentNLU.generate_multilingual_response("staff_who_is_next", lang, data)
+    speech += (
+        " क्या आप उन्हें अभी बुलाना चाहते हैं?" if lang == "hi" else
+        " Kya aap inhein abhi bulana chahte hain?" if lang == "hinglish" else
+        " Would you like to call them to the counter now?"
+    )
     card = {
         "card_type": "staff_call_next",
+        "action_id": act_id,
         "title": "Next Farmer in Line",
         "token": formatted_tok,
         "farmer_name": data["next_farmer_name"],
         "produce": f"{next_booking.quantity_kg:,} kg {next_booking.produce}",
         "center_name": center_name,
+        "actions": [
+            {"label": "Call to Counter", "confirm": True, "style": "primary"},
+            {"label": "Skip", "confirm": False, "style": "secondary"}
+        ]
     }
     return {
         **state,
-        "status": "success",
+        "status": "requires_confirmation",
+        "action_id": act_id,
         "message": speech,
         "speech_text": speech,
         "card": card,
@@ -1080,7 +1164,147 @@ async def tool_execute_staged_action(db: AsyncSession, state: Dict[str, Any]) ->
         }
         return {**state, "status": "confirmed", "message": speech, "speech_text": speech, "card": card}
 
-    return {**state, "status": "error", "message": "Unknown action type"}
+    return {**state, "status": "error", "message": "Unknown action type", "speech_text": "Unknown action type", "card": None}
+
+
+# ── Admin Tools ───────────────────────────────────────────────────────────────
+async def tool_admin_center_summary(db: AsyncSession, state: Dict[str, Any]) -> Dict[str, Any]:
+    """Admin: Overview of all procurement centers."""
+    lang = state.get("language", "en")
+    today = date.today()
+
+    centers = (await db.scalars(select(ProcurementCenter))).all()
+    summary_rows = []
+    total_waiting = 0
+    total_completed = 0
+    total_bookings = 0
+
+    for c in centers:
+        waiting = await db.scalar(
+            select(func.count(Booking.id)).where(
+                Booking.procurement_center_id == c.id,
+                func.date(Booking.booked_at) == today,
+                Booking.status.in_(["Waiting", "Confirmed"])
+            )
+        ) or 0
+        completed = await db.scalar(
+            select(func.count(Booking.id)).where(
+                Booking.procurement_center_id == c.id,
+                func.date(Booking.booked_at) == today,
+                Booking.status == "Completed"
+            )
+        ) or 0
+        total_today = waiting + completed
+        total_waiting += waiting
+        total_completed += completed
+        total_bookings += total_today
+        summary_rows.append({
+            "center": c.name,
+            "status": c.status,
+            "waiting": waiting,
+            "completed": completed,
+            "total": total_today,
+        })
+
+    summary_str = "; ".join(
+        [f"{r['center']}: {r['waiting']} waiting, {r['completed']} done" for r in summary_rows]
+    )
+    speech = (
+        f"आज सभी केंद्रों का सारांश: {summary_str}। कुल: {total_bookings} बुकिंग, {total_waiting} प्रतीक्षारत, {total_completed} पूर्ण।"
+        if lang == "hi" else
+        f"Aaj sab centers ka summary: {summary_str}. Total: {total_bookings} bookings, {total_waiting} waiting, {total_completed} completed."
+        if lang == "hinglish" else
+        f"Today's center summary: {summary_str}. Total: {total_bookings} bookings, {total_waiting} waiting, {total_completed} completed."
+    )
+    card = {
+        "card_type": "staff_queue_summary",
+        "title": "All Centers — Today's Overview",
+        "waiting_count": total_waiting,
+        "serving_count": 0,
+        "total_today": total_bookings,
+        "center_name": f"{len(centers)} Centers",
+        "next_token": "-",
+    }
+    return {**state, "status": "success", "message": speech, "speech_text": speech, "card": card}
+
+
+async def tool_admin_pending_payments_all(db: AsyncSession, state: Dict[str, Any]) -> Dict[str, Any]:
+    """Admin: All pending payments across every center."""
+    lang = state.get("language", "en")
+
+    pending = (await db.scalars(
+        select(Payment).where(Payment.status.in_(["Scheduled", "Processing", "On Hold"]))
+    )).all()
+
+    total_amount = sum(p.amount for p in pending)
+    speech = (
+        f"सभी केंद्रों में कुल {len(pending)} लंबित भुगतान हैं। कुल राशि: {format_currency(total_amount)}।"
+        if lang == "hi" else
+        f"Sabhi centers me kul {len(pending)} pending payments hain. Total amount: {format_currency(total_amount)}."
+        if lang == "hinglish" else
+        f"Across all centers, there are {len(pending)} pending payment(s) totalling {format_currency(total_amount)}."
+    )
+    card = {
+        "card_type": "payment_status",
+        "title": "All Centers — Pending Payments",
+        "amount": format_currency(total_amount),
+        "status": "Pending",
+        "receipt_number": f"{len(pending)} records",
+        "expected_date": "Varies",
+    }
+    return {**state, "status": "success", "message": speech, "speech_text": speech, "card": card}
+
+
+async def tool_admin_farmer_search(db: AsyncSession, state: Dict[str, Any]) -> Dict[str, Any]:
+    """Admin: Search for a farmer by name or mobile number."""
+    lang = state.get("language", "en")
+    entities = state.get("entities") or {}
+    farmer_name = entities.get("farmer_name") or ""
+    mobile = entities.get("mobile_number") or ""
+    query_text = state.get("query", "")
+
+    farmer = None
+    if mobile:
+        farmer = await db.scalar(select(Farmer).where(Farmer.mobile_number == mobile))
+    elif farmer_name:
+        farmer = await db.scalar(
+            select(Farmer).where(Farmer.full_name.ilike(f"%{farmer_name}%"))
+        )
+    else:
+        # Try to extract a name from the raw query
+        words = query_text.split()
+        for w in words:
+            if len(w) > 4 and w.istitle():
+                farmer = await db.scalar(
+                    select(Farmer).where(Farmer.full_name.ilike(f"%{w}%"))
+                )
+                if farmer:
+                    break
+
+    if not farmer:
+        speech = (
+            "दिए गए नाम या मोबाइल नंबर से कोई किसान नहीं मिला।" if lang == "hi" else
+            "Diye gaye naam ya mobile se koi kisan nahi mila." if lang == "hinglish" else
+            "No farmer found with the given name or mobile number."
+        )
+        return {**state, "status": "not_found", "message": speech, "speech_text": speech, "card": None}
+
+    latest_booking = await db.scalar(
+        select(Booking).where(Booking.farmer_id == farmer.id).order_by(desc(Booking.booked_at)).limit(1)
+    )
+    speech = (
+        f"किसान मिले: {farmer.full_name}, मोबाइल: {farmer.mobile_number}।" if lang == "hi" else
+        f"Farmer mila: {farmer.full_name}, mobile: {farmer.mobile_number}." if lang == "hinglish" else
+        f"Farmer found: {farmer.full_name}, Mobile: {farmer.mobile_number}, Village: {farmer.village or 'N/A'}."
+    )
+    card = {
+        "card_type": "token_status",
+        "title": "Farmer Profile",
+        "token": latest_booking.token_number if latest_booking else "—",
+        "center_name": farmer.full_name,
+        "status": latest_booking.status if latest_booking else "No bookings",
+    }
+    return {**state, "status": "success", "message": speech, "speech_text": speech, "card": card}
 
 # ── 10. Rejection Tool ────────────────────────────────────────────────────────
 def tool_handle_rejection(state: Dict[str, Any]) -> Dict[str, Any]:

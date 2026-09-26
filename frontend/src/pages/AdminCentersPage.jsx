@@ -238,7 +238,7 @@ export default function AdminCentersPage() {
                     <div className="pc-util-top">
                       <span className="pc-util-label">Capacity Utilization</span>
                       <span className="pc-util-val" style={{ color }}>
-                        {center.current_capacity?.toLocaleString()} / {center.daily_capacity?.toLocaleString()}
+                        {center.current_capacity?.toLocaleString()} / {center.daily_capacity?.toLocaleString()} q
                         <span className="pc-util-pct">({util}%)</span>
                       </span>
                     </div>

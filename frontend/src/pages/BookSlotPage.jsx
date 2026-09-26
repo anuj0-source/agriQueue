@@ -56,7 +56,7 @@ export default function BookSlotPage() {
             location: `${c.village}, ${c.district} • ${c.state}`,
             crops: c.crops && c.crops.length > 0 ? c.crops.map(crop => crop.name).join(', ') : 'No produces listed',
             cropsList: c.crops || [],
-            availableSlots: Math.max(0, (c.available_slots || c.daily_capacity || 0) / 100),
+            availableSlots: Math.max(0, c.available_slots || 0),
           }))
           setCenters(enriched)
           setSelectedCenter(enriched[0])
@@ -335,9 +335,18 @@ export default function BookSlotPage() {
                           if (center.cropsList && center.cropsList.length > 0) {
                             setSelectedProduce(center.cropsList[0].name)
                           }
-                          // If current time is past mandi hours (>= 14:00) or center has 0 slots left today, advance to tomorrow
-                          const nowH = new Date().getHours()
-                          if (nowH >= 14 || (center.availableSlots !== undefined && center.availableSlots <= 0)) {
+                          // Default to today unless the center has actually closed for today
+                          // Parse the center's closing_time (format "HH:MM") and compare with now
+                          const now = new Date()
+                          const nowMins = now.getHours() * 60 + now.getMinutes()
+                          let centerClosedToday = false
+                          if (center.closing_time) {
+                            const [ch, cm] = center.closing_time.split(':').map(Number)
+                            const closingMins = ch * 60 + (cm || 0)
+                            centerClosedToday = nowMins >= closingMins
+                          }
+                          const noSlotsLeft = center.availableSlots !== undefined && center.availableSlots <= 0
+                          if (centerClosedToday || noSlotsLeft) {
                             setSelectedDate(todayDate + 1)
                           } else {
                             setSelectedDate(todayDate)

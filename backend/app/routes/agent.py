@@ -18,6 +18,7 @@ class AgentCommandRequest(BaseModel):
     language: Optional[str] = None  # 'en', 'hi', 'hinglish' or None for auto-detect
     action_id: Optional[str] = None
     action_confirm: Optional[bool] = None
+    conversation_history: Optional[List[Dict[str, str]]] = None  # [{role, text}, ...]
 
 @router.post("/command")
 async def execute_agent_command(
@@ -39,7 +40,8 @@ async def execute_agent_command(
         user_payload=user_payload,
         action_id=data.action_id,
         action_confirm=data.action_confirm,
-        preferred_lang=data.language
+        preferred_lang=data.language,
+        client_history=data.conversation_history or [],
     )
     return result
 

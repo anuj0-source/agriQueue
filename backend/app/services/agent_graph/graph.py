@@ -21,6 +21,9 @@ from services.agent_graph.tools import (
     tool_staff_pending_payments,
     tool_staff_who_is_next,
     tool_staff_serve_next,
+    tool_admin_center_summary,
+    tool_admin_pending_payments_all,
+    tool_admin_farmer_search,
     tool_execute_staged_action,
     tool_handle_rejection,
     tool_general_qa,
@@ -97,6 +100,9 @@ def route_next_node(state: AgentGraphState) -> str:
         "staff_pending_payments": "node_staff_pending",
         "staff_who_is_next": "node_staff_next",
         "staff_serve_next": "node_staff_serve",
+        "admin_center_summary": "node_admin_centers",
+        "admin_pending_payments_all": "node_admin_payments",
+        "admin_farmer_search": "node_admin_farmer",
     }
     return mapping.get(intent, "node_general_qa")
 
@@ -156,6 +162,18 @@ async def wrap_staff_serve(state: AgentGraphState, config) -> AgentGraphState:
     db = _get_db(config)
     return await tool_staff_serve_next(db, state)
 
+async def wrap_admin_centers(state: AgentGraphState, config) -> AgentGraphState:
+    db = _get_db(config)
+    return await tool_admin_center_summary(db, state)
+
+async def wrap_admin_payments(state: AgentGraphState, config) -> AgentGraphState:
+    db = _get_db(config)
+    return await tool_admin_pending_payments_all(db, state)
+
+async def wrap_admin_farmer(state: AgentGraphState, config) -> AgentGraphState:
+    db = _get_db(config)
+    return await tool_admin_farmer_search(db, state)
+
 async def wrap_execute_staged(state: AgentGraphState, config) -> AgentGraphState:
     db = _get_db(config)
     return await tool_execute_staged_action(db, state)
@@ -201,6 +219,10 @@ def build_agent_graph():
     builder.add_node("node_staff_next", wrap_staff_next)
     builder.add_node("node_staff_serve", wrap_staff_serve)
 
+    builder.add_node("node_admin_centers", wrap_admin_centers)
+    builder.add_node("node_admin_payments", wrap_admin_payments)
+    builder.add_node("node_admin_farmer", wrap_admin_farmer)
+
     builder.add_node("execute_staged", wrap_execute_staged)
     builder.add_node("reject_staged", wrap_reject_staged)
     builder.add_node("node_general_qa", wrap_general_qa)
@@ -230,6 +252,9 @@ def build_agent_graph():
             "node_staff_pending": "node_staff_pending",
             "node_staff_next": "node_staff_next",
             "node_staff_serve": "node_staff_serve",
+            "node_admin_centers": "node_admin_centers",
+            "node_admin_payments": "node_admin_payments",
+            "node_admin_farmer": "node_admin_farmer",
             "node_general_qa": "node_general_qa",
         }
     )
@@ -240,6 +265,7 @@ def build_agent_graph():
         "node_check_queue", "node_procurement_status", "node_payment_status",
         "node_staff_waiting", "node_staff_today", "node_staff_completed",
         "node_staff_pending", "node_staff_next", "node_staff_serve",
+        "node_admin_centers", "node_admin_payments", "node_admin_farmer",
         "execute_staged", "reject_staged", "node_general_qa"
     ]:
         builder.add_edge(node_name, "format_response")

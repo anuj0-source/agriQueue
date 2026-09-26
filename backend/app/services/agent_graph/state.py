@@ -11,6 +11,9 @@ class AgentGraphState(TypedDict, total=False):
     action_id: Optional[str]
     action_confirm: Optional[bool]
 
+    # Multi-turn conversation memory (last N exchanges)
+    conversation_history: List[Dict[str, str]]
+
     # Reasoning / Classification outputs
     language: str  # "en", "hi", "hinglish"
     intent: str
@@ -21,6 +24,9 @@ class AgentGraphState(TypedDict, total=False):
     # Workflow branching & Staging
     staged_action: Optional[Dict[str, Any]]
     status: str  # "success", "requires_confirmation", "unauthorized", "expired", "cancelled", "error"
+
+    # Retry tracking
+    retry_count: int
 
     # Execution outputs
     message: str

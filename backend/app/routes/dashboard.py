@@ -13,6 +13,7 @@ from models.procurement_center import ProcurementCenter
 from models.procurement import ProcurementRecord
 from models.payment import Payment
 from models.payment_profile import PaymentProfile
+from models.slot import Slot
 from payment_utils import encrypt_destination, mask_destination, payment_status_label
 
 router = APIRouter(
@@ -98,6 +99,9 @@ async def farmer_dashboard(
     upcoming_booking_data = None
     if upcoming_res:
         b, c, procurement = upcoming_res
+        # Look up actual slot times from DB instead of using hardcoded map
+        slot_obj = await db.scalar(select(Slot).where(Slot.id == b.slot_id)) if b.slot_id else None
+        slot_time_str = f"{slot_obj.start_time} - {slot_obj.end_time}" if slot_obj else "Time not set"
         upcoming_booking_data = {
             "id": f"UB-{b.id}",
             "produce": b.produce,
@@ -109,7 +113,7 @@ async def farmer_dashboard(
             "center_address": c.address,
             "fullCenter": f"{c.name}, {c.village}",
             "date": b.booked_at.strftime("%d %b %Y"),
-            "time": SLOT_TIME_MAP.get(b.slot_id, "10:00 AM - 11:00 AM"),
+            "time": slot_time_str,
             "token": format_token(c.name, b.token_number),
             "status": b.status,
             "center_id": c.id,

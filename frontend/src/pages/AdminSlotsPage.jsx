@@ -129,13 +129,13 @@ export default function AdminSlotsPage() {
                             <span>{slot.time}</span>
                           </div>
                         </td>
-                        <td>{slot.capacity}</td>
+                        <td>{slot.capacity} q</td>
                         <td>
-                          <strong style={{ color: '#0a7a4a' }}>{slot.booked_count}</strong>
+                          <strong style={{ color: '#0a7a4a' }}>{slot.booked_count} q</strong>
                         </td>
                         <td>
                           <span className={`avail-tag ${slot.available === 0 ? 'zero' : ''}`}>
-                            {slot.available} left
+                            {slot.available} q left
                           </span>
                         </td>
                         <td>
@@ -246,18 +246,18 @@ export default function AdminSlotsPage() {
 
                         <div className="admin-mobile-detail-row">
                           <span className="detail-label">Total Capacity</span>
-                          <span style={{ fontWeight: 600 }}>{slot.capacity} slots</span>
+                          <span style={{ fontWeight: 600 }}>{slot.capacity} quintals</span>
                         </div>
 
                         <div className="admin-mobile-detail-row">
-                          <span className="detail-label">Booked Slots</span>
-                          <strong style={{ color: '#0a7a4a' }}>{slot.booked_count}</strong>
+                          <span className="detail-label">Booked</span>
+                          <strong style={{ color: '#0a7a4a' }}>{slot.booked_count} q</strong>
                         </div>
 
                         <div className="admin-mobile-detail-row">
                           <span className="detail-label">Availability</span>
                           <span className={`avail-tag ${slot.available === 0 ? 'zero' : ''}`}>
-                            {slot.available} left
+                            {slot.available} q left
                           </span>
                         </div>
 

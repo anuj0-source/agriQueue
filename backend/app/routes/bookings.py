@@ -46,15 +46,25 @@ async def create_booking(
 
     user_id = payload.get("user_id")
 
-    center = await db.scalar(select(ProcurementCenter).where(ProcurementCenter.id == data.procurement_center_id))
+    # Lock the center row so concurrent booking requests for the same center
+    # are serialized — this prevents duplicate token numbers under load
+    center = await db.scalar(
+        select(ProcurementCenter)
+        .where(ProcurementCenter.id == data.procurement_center_id)
+        .with_for_update()
+    )
     if not center:
         raise HTTPException(status_code=404, detail="Procurement center not found")
 
-    # Generate sequential token number for this center
+    # Count only today's bookings for this center → token resets to 1 each day
+    from datetime import date as _date
     count_today = await db.scalar(
-        select(func.count(Booking.id)).where(Booking.procurement_center_id == data.procurement_center_id)
-    )
-    token_number = (count_today or 0) + 40  # Start around 40 for realistic demo queue numbers
+        select(func.count(Booking.id)).where(
+            Booking.procurement_center_id == data.procurement_center_id,
+            func.date(Booking.booked_at) == _date.today()
+        )
+    ) or 0
+    token_number = count_today + 1
 
     # Fetch Produce to get exact price
     produce_record = await db.scalar(
@@ -101,7 +111,8 @@ async def create_booking(
 
         if slot.capacity:
             # Sum quantity already booked in this slot on target date (excluding cancelled)
-            booked_target_qty = await db.scalar(
+            # Both slot.capacity and Booking.quantity_kg are in kg
+            booked_target_qty_kg = await db.scalar(
                 select(func.coalesce(func.sum(Booking.quantity_kg), 0)).where(
                     Booking.slot_id == data.slot_id,
                     Booking.procurement_center_id == data.procurement_center_id,
@@ -109,15 +120,18 @@ async def create_booking(
                     Booking.status.notin_(["Cancelled"])
                 )
             ) or 0
-            available = slot.capacity - booked_target_qty
-            if quantity_kg > available:
+            # slot.capacity is always in kg
+            available_kg = slot.capacity - booked_target_qty_kg
+            if quantity_kg > available_kg:
+                avail_q = round(max(0, available_kg) / 100, 1)
                 raise HTTPException(
                     status_code=400,
-                    detail=f"Requested quantity exceeds slot capacity. Available: {max(0, available)} kg"
+                    detail=f"Requested quantity exceeds slot capacity. Available: {max(0, available_kg)} kg ({avail_q} quintals)"
                 )
             # Update running count if booking is for today
             if target_date == today_date:
-                slot.booked_count = booked_target_qty + quantity_kg
+                slot.booked_count = booked_target_qty_kg + quantity_kg
+                center.current_capacity = (center.current_capacity or 0) + quantity_kg
 
     # Active queue ahead calculation for target date
     ahead_count = await db.scalar(
@@ -254,7 +268,20 @@ async def cancel_booking(
     if booking.status in ["Completed", "Cancelled", "Serving"]:
         raise HTTPException(status_code=400, detail=f"Cannot cancel a booking that is currently {booking.status}")
 
+    qty_kg = booking.quantity_kg or 0
     booking.status = "Cancelled"
+
+    # Decrement denormalized counters so capacity display stays accurate
+    from datetime import date
+    if booking.booked_at and booking.booked_at.date() == date.today():
+        if booking.slot_id:
+            slot = await db.scalar(select(Slot).where(Slot.id == booking.slot_id))
+            if slot and slot.booked_count:
+                slot.booked_count = max(0, slot.booked_count - qty_kg)
+        center = await db.scalar(select(ProcurementCenter).where(ProcurementCenter.id == booking.procurement_center_id))
+        if center and center.current_capacity:
+            center.current_capacity = max(0, center.current_capacity - qty_kg)
+
     await db.commit()
 
     return {"success": True, "message": "Booking cancelled successfully"}

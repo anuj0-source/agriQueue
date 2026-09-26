@@ -475,7 +475,20 @@ async def skip_token(
     if not booking:
         raise HTTPException(status_code=404, detail="Booking not found")
 
+    qty_kg = booking.quantity_kg or 0
     booking.status = "Cancelled"
+
+    # Decrement denormalized counters so capacity display stays accurate
+    from datetime import date
+    if booking.booked_at and booking.booked_at.date() == date.today():
+        if booking.slot_id:
+            slot = await db.scalar(select(Slot).where(Slot.id == booking.slot_id))
+            if slot and slot.booked_count:
+                slot.booked_count = max(0, slot.booked_count - qty_kg)
+        skip_center = await db.scalar(select(ProcurementCenter).where(ProcurementCenter.id == booking.procurement_center_id))
+        if skip_center and skip_center.current_capacity:
+            skip_center.current_capacity = max(0, skip_center.current_capacity - qty_kg)
+
     await db.commit()
 
     return {"success": True, "message": f"Token skipped/cancelled for booking {booking_id}"}
@@ -511,6 +524,13 @@ async def get_staff_procurement(
     center = await db.scalar(select(ProcurementCenter).where(ProcurementCenter.id == staff.center_id))
     prefix = center.name.split()[-1][0].upper() if center else "A"
 
+    # Build slot time lookup from actual DB values (not hardcoded map)
+    slot_ids = list({b.slot_id for b, *_ in rows if b.slot_id})
+    slot_time_lookup = {}
+    if slot_ids:
+        slot_records = (await db.scalars(select(Slot).where(Slot.id.in_(slot_ids)))).all()
+        slot_time_lookup = {s.id: f"{s.start_time} - {s.end_time}" for s in slot_records}
+
     result = []
     for b, f, procurement, verifier, payment in rows:
         result.append({
@@ -523,7 +543,7 @@ async def get_staff_procurement(
             "quantity_kg": b.quantity_kg,
             "total_price": b.total_price,
             "status": b.status,
-            "slot_time": SLOT_TIME_MAP.get(b.slot_id, "10:00 AM - 11:00 AM"),
+            "slot_time": slot_time_lookup.get(b.slot_id, "Time not set"),
             "date": b.booked_at.strftime("%d %b %Y"),
             "actual_weight_kg": procurement.actual_weight_kg if procurement else None,
             "deductions_kg": procurement.deductions_kg if procurement else 0,

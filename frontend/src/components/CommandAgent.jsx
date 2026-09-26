@@ -35,6 +35,7 @@ export default function CommandAgent({ userRole = 'farmer' }) {
   const [isLoading, setIsLoading] = useState(false)
   const [suggestions, setSuggestions] = useState([])
   const [activeRole, setActiveRole] = useState(userRole)
+  const [lastFailedQuery, setLastFailedQuery] = useState(null)
 
   const messagesEndRef = useRef(null)
   const inputRef = useRef(null)
@@ -210,24 +211,101 @@ export default function CommandAgent({ userRole = 'farmer' }) {
   }, [selectedLang])
 
   // Text to Speech playback
+  // Cache voices after first load
+  const voicesRef = useRef([])
+
+  const getVoices = () => {
+    if (voicesRef.current.length > 0) return voicesRef.current
+    const v = synthRef.current?.getVoices() || []
+    voicesRef.current = v
+    return v
+  }
+
+  // Preferred human-sounding English voice names (in priority order)
+  const PREFERRED_EN_VOICES = [
+    'Google UK English Female',
+    'Google UK English Male',
+    'Microsoft Aria Online (Natural) - English (United States)',
+    'Microsoft Jenny Online (Natural) - English (United States)',
+    'Microsoft Guy Online (Natural) - English (United States)',
+    'Microsoft Aria - English (United States)',
+    'Microsoft Jenny - English (United States)',
+    'Samantha',         // macOS/iOS natural female
+    'Karen',            // macOS Australian English
+    'Daniel',           // macOS UK English Male
+    'Google US English',
+    'Microsoft Zira - English (United States)',
+    'Microsoft David - English (United States)',
+  ]
+
+  const PREFERRED_HI_VOICES = [
+    'Google हिन्दी',
+    'Microsoft Swara Online (Natural) - Hindi (India)',
+    'Microsoft Swara - Hindi (India)',
+    'Lekha',
+  ]
+
+  const pickVoice = (lang) => {
+    const voices = getVoices()
+    if (!voices.length) return null
+
+    const preferred = lang === 'hi' ? PREFERRED_HI_VOICES : PREFERRED_EN_VOICES
+    for (const name of preferred) {
+      const match = voices.find((v) => v.name === name)
+      if (match) return match
+    }
+    // Fallback: any voice matching the locale
+    const locale = lang === 'hi' ? 'hi' : 'en'
+    return voices.find((v) => v.lang.startsWith(locale)) || null
+  }
+
+  // Strip markdown and special symbols so they aren't read aloud
+  const cleanForSpeech = (text) =>
+    text
+      .replace(/\*\*/g, '')
+      .replace(/[*_`~>#]/g, '')
+      .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')   // [link](url) → link text
+      .replace(/```[\s\S]*?```/g, '')              // code blocks
+      .replace(/\n{2,}/g, '. ')                    // paragraph breaks → pause
+      .replace(/\n/g, ', ')
+      .trim()
+
   const speakText = (text, lang = 'en') => {
     if (!ttsEnabled || !synthRef.current || !text) return
     try {
-      synthRef.current.cancel() // stop any ongoing utterance
-      const utterance = new SpeechSynthesisUtterance(text)
+      synthRef.current.cancel()
 
-      if (lang === 'hi') {
-        utterance.lang = 'hi-IN'
-      } else {
-        utterance.lang = 'en-IN'
+      // Wait for voices to be loaded (Chrome loads them async on first call)
+      const doSpeak = () => {
+        const cleaned = cleanForSpeech(text)
+        const utterance = new SpeechSynthesisUtterance(cleaned)
+
+        utterance.lang  = lang === 'hi' ? 'hi-IN' : 'en-IN'
+        utterance.rate  = lang === 'hi' ? 0.9 : 0.92   // slightly slower = more natural
+        utterance.pitch = lang === 'hi' ? 1.0 : 1.05   // slight lift = warmer, less flat
+        utterance.volume = 1.0
+
+        const chosenVoice = pickVoice(lang)
+        if (chosenVoice) utterance.voice = chosenVoice
+
+        synthRef.current.speak(utterance)
       }
-      utterance.rate = 1.0
-      utterance.pitch = 1.0
-      synthRef.current.speak(utterance)
+
+      // Voices may not be ready yet on first mount — wait for them
+      if (synthRef.current.getVoices().length > 0) {
+        voicesRef.current = synthRef.current.getVoices()
+        doSpeak()
+      } else {
+        synthRef.current.addEventListener('voiceschanged', () => {
+          voicesRef.current = synthRef.current.getVoices()
+          doSpeak()
+        }, { once: true })
+      }
     } catch (err) {
       console.warn('TTS playback error:', err)
     }
   }
+
 
   const toggleMic = () => {
     if (!recognitionRef.current) {
@@ -253,6 +331,7 @@ export default function CommandAgent({ userRole = 'farmer' }) {
 
     setInputText('')
     setInterimTranscript('')
+    setLastFailedQuery(null)
     if (isListening && recognitionRef.current) {
       recognitionRef.current.stop()
       setIsListening(false)
@@ -270,10 +349,21 @@ export default function CommandAgent({ userRole = 'farmer' }) {
     setMessages((prev) => [...prev, newMsg])
     setIsLoading(true)
 
+    // Build compact conversation history from last 6 message pairs
+    const buildHistory = (msgs) => {
+      const out = []
+      for (const m of msgs.slice(-12)) {
+        if (m.sender === 'user') out.push({ role: 'user', text: m.text })
+        else if (m.sender === 'agent' && m.text) out.push({ role: 'agent', text: m.text })
+      }
+      return out
+    }
+
     try {
       const payload = {
         command: query,
         language: selectedLang === 'auto' ? null : selectedLang,
+        conversation_history: buildHistory(messages),
       }
       const res = await sendAgentCommand(payload)
 
@@ -295,10 +385,12 @@ export default function CommandAgent({ userRole = 'farmer' }) {
         speakText(res.speech_text, res.language)
       }
     } catch (err) {
+      setLastFailedQuery(query)
       const errorMsg = {
         id: `err-${Date.now()}`,
         sender: 'agent',
         text: 'Sorry, I encountered an issue processing that command. Please try again.',
+        isError: true,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         card: null,
       }
@@ -464,8 +556,21 @@ export default function CommandAgent({ userRole = 'farmer' }) {
                   )}
 
                   <div className="msg-bubble-wrap">
-                    <div className={`msg-bubble ${m.sender}`}>
+                    <div className={`msg-bubble ${m.sender}${m.isError ? ' error-bubble' : ''}`}>
                       <p className="msg-text">{m.text}</p>
+                      {m.isError && lastFailedQuery && (
+                        <button
+                          type="button"
+                          className="msg-retry-btn"
+                          onClick={() => {
+                            setLastFailedQuery(null)
+                            handleSend(lastFailedQuery)
+                          }}
+                          disabled={isLoading}
+                        >
+                          <RefreshCw size={12} /> Retry
+                        </button>
+                      )}
                       <div className="msg-meta-row">
                         {m.fromVoice && (
                           <span className="msg-voice-tag" title="Spoken input">
