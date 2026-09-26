@@ -430,10 +430,26 @@ export async function getAdminDashboard(timeframe = 'Last 30 Days') {
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
     })
-    if (!res.ok) throw new Error('Failed to fetch admin dashboard')
+    if (!res.ok) {
+      let detail = 'Failed to fetch admin dashboard'
+      try {
+        const d = await res.json()
+        detail = d.detail || d.message || detail
+      } catch {}
+      const err = new Error(detail)
+      err.status = res.status
+      if (res.status === 401 || res.status === 403) {
+        window.dispatchEvent(new CustomEvent('agri-unauthorized', {
+          detail: { status: res.status, message: detail, requiredRole: 'Administrator' }
+        }))
+      }
+      throw err
+    }
     return await res.json()
   } catch (err) {
-    window.location.href = '/login'
+    if (err.status === 401 || err.status === 403) {
+      throw err
+    }
     console.warn('Fallback to local admin dashboard data:', err)
     const { ADMIN_METRICS, ADMIN_TREND_DATA, ADMIN_CROP_DISTRIBUTION, ADMIN_RECENT_ACTIVITIES, ADMIN_CENTER_PERFORMANCE } = await import('./data/admin-data.js')
     return {
@@ -458,9 +474,26 @@ export async function getAdminCenters() {
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
     })
-    if (!res.ok) throw new Error('Failed to fetch centers')
+    if (!res.ok) {
+      let detail = 'Failed to fetch centers'
+      try {
+        const d = await res.json()
+        detail = d.detail || d.message || detail
+      } catch {}
+      const err = new Error(detail)
+      err.status = res.status
+      if (res.status === 401 || res.status === 403) {
+        window.dispatchEvent(new CustomEvent('agri-unauthorized', {
+          detail: { status: res.status, message: detail, requiredRole: 'Administrator' }
+        }))
+      }
+      throw err
+    }
     return await res.json()
   } catch (err) {
+    if (err.status === 401 || err.status === 403) {
+      throw err
+    }
     console.warn('Fallback to local admin centers:', err)
     const { ADMIN_CENTERS } = await import('./data/admin-data.js')
     return ADMIN_CENTERS
@@ -472,11 +505,25 @@ export async function getAdminCenterDetails(centerId) {
     const res = await fetch(`${API_BASE_URL}/admin/centers/${centerId}`, {
       credentials: 'include',
     })
-    if (!res.ok) throw new Error('Failed to fetch center details')
+    if (!res.ok) {
+      let detail = 'Failed to fetch center details'
+      try {
+        const d = await res.json()
+        detail = d.detail || d.message || detail
+      } catch {}
+      const err = new Error(detail)
+      err.status = res.status
+      if (res.status === 401 || res.status === 403) {
+        window.dispatchEvent(new CustomEvent('agri-unauthorized', {
+          detail: { status: res.status, message: detail, requiredRole: 'Administrator' }
+        }))
+      }
+      throw err
+    }
     return await res.json()
   } catch (err) {
-    console.error(err)
-    return null
+    console.error('getAdminCenterDetails error:', err)
+    throw err
   }
 }
 

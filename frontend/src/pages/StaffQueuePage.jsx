@@ -25,12 +25,6 @@ export default function StaffQueuePage() {
   const [completing, setCompleting] = useState(false)
   const [currentBookingDetails, setCurrentBookingDetails] = useState(null)
 
-  useEffect(() => {
-    const currentUser = (() => {
-      try { return JSON.parse(localStorage.getItem('currentUser') || 'null') } catch { return null }
-    })()
-    if (!currentUser || currentUser.role !== 'staff') window.location.href = '/login'
-  }, [])
 
   useEffect(() => {
     if (!queueData) return

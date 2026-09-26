@@ -14,6 +14,7 @@ import {
 } from 'lucide-react'
 import Brand from './Brand'
 import { logoutFarmer } from '../api'
+import UnauthorizedPage from '../pages/UnauthorizedPage'
 
 const ADMIN_NAV_ITEMS = [
   { label: 'Dashboard', path: '/admin', icon: LayoutDashboard },
@@ -42,6 +43,23 @@ export default function AdminLayout({
       return stored ? JSON.parse(stored) : null
     } catch { return null }
   })()
+
+  if (!currentUser || currentUser?.role?.toLowerCase() !== 'admin') {
+    return (
+      <UnauthorizedPage
+        status={currentUser ? 403 : 401}
+        title={currentUser ? 'Access Restricted: Admin Required' : 'Unauthorized Access'}
+        message={
+          currentUser
+            ? `Your current account (${currentUser.full_name || 'User'}) has the "${currentUser.role || 'farmer'}" role. Administrator privileges are required to access this portal.`
+            : 'You must be signed in with an administrator account to view the Admin Console.'
+        }
+        requiredRole="Administrator"
+        currentUser={currentUser}
+        path={window.location.pathname}
+      />
+    )
+  }
 
   const adminName = currentUser?.full_name || 'Admin'
   const adminInitials = adminName

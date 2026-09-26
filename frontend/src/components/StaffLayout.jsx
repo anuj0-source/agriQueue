@@ -14,6 +14,7 @@ import Brand from './Brand'
 import NotificationPanel from './NotificationPanel'
 import { useNotifications } from '../context/NotificationContext'
 import { logoutFarmer } from '../api'
+import UnauthorizedPage from '../pages/UnauthorizedPage'
 
 const STAFF_NAV_ITEMS = [
   { label: 'Dashboard', path: '/staff', icon: LayoutDashboard },
@@ -38,6 +39,23 @@ export default function StaffLayout({
       return stored ? JSON.parse(stored) : null
     } catch { return null }
   })()
+
+  if (!currentUser || currentUser?.role?.toLowerCase() !== 'staff') {
+    return (
+      <UnauthorizedPage
+        status={currentUser ? 403 : 401}
+        title={currentUser ? 'Access Restricted: Staff Required' : 'Unauthorized Access'}
+        message={
+          currentUser
+            ? `Your current account (${currentUser.full_name || 'User'}) has the "${currentUser.role || 'farmer'}" role. Procurement Staff privileges are required to access this portal.`
+            : 'You must be signed in with a procurement staff account to view the Staff Portal.'
+        }
+        requiredRole="Procurement Staff"
+        currentUser={currentUser}
+        path={window.location.pathname}
+      />
+    )
+  }
 
   const staffName = currentUser?.full_name || 'Staff'
   const staffInitials = staffName

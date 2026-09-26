@@ -16,13 +16,6 @@ export default function StaffDashboardPage() {
   const [error, setError] = useState(null)
 
   useEffect(() => {
-    const currentUser = (() => {
-      try { return JSON.parse(localStorage.getItem('currentUser') || 'null') } catch { return null }
-    })()
-    if (!currentUser || currentUser.role !== 'staff') {
-      window.location.href = '/login'
-      return
-    }
     loadDashboard()
   }, [])
 

@@ -15,6 +15,7 @@ import Brand from './Brand'
 import NotificationPanel from './NotificationPanel'
 import { useNotifications } from '../context/NotificationContext'
 import { FARMER_PROFILE } from '../data/farmer-data'
+import UnauthorizedPage from '../pages/UnauthorizedPage'
 
 const NAV_ITEMS = [
   { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
@@ -39,6 +40,19 @@ export default function FarmerLayout({ activePath, user, children }) {
       return null
     }
   })()
+
+  if (!currentUser) {
+    return (
+      <UnauthorizedPage
+        status={401}
+        title="Unauthorized Access"
+        message="Please sign in to access your farmer portal, view bookings, and manage queue slots."
+        requiredRole="Farmer / Registered User"
+        currentUser={null}
+        path={window.location.pathname}
+      />
+    )
+  }
 
   if (currentUser?.full_name) {
     initials = currentUser.full_name

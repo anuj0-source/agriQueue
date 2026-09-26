@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import AdminLayout from '../components/AdminLayout'
+import UnauthorizedPage from './UnauthorizedPage'
 import { getAdminCenterDetails, deleteAdminCenter, getCenterStaff, createCenterStaff, deleteStaffMember, updateAdminCenter, updateAdminSlot, deleteAdminSlot, createAdminSlot } from '../api'
 import {
   Building2, MapPin, Clock, Navigation, ArrowLeft, CalendarDays,
@@ -11,6 +12,7 @@ import CropIcon from '../components/CropIcon'
 export default function AdminCenterDetailsPage() {
   const [center, setCenter]           = useState(null)
   const [loading, setLoading]         = useState(true)
+  const [authError, setAuthError]     = useState(null)
   const [isDeleting, setIsDeleting]   = useState(false)
   const [showConfirmModal, setShowConfirmModal] = useState(false)
 
@@ -63,9 +65,15 @@ export default function AdminCenterDetailsPage() {
     async function load() {
       const id = new URLSearchParams(window.location.search).get('id')
       if (id) {
-        const data = await getAdminCenterDetails(id)
-        setCenter(data)
-        await loadStaff(id)
+        try {
+          const data = await getAdminCenterDetails(id)
+          setCenter(data)
+          await loadStaff(id)
+        } catch (err) {
+          if (err.status === 401 || err.status === 403) {
+            setAuthError({ status: err.status, message: err.message })
+          }
+        }
       }
       setLoading(false)
     }
@@ -211,6 +219,18 @@ export default function AdminCenterDetailsPage() {
       </div>
     </AdminLayout>
   )
+
+  if (authError) {
+    return (
+      <UnauthorizedPage
+        status={authError.status}
+        title={authError.status === 401 ? 'Unauthorized Access' : 'Access Restricted: Admin Required'}
+        message={authError.message}
+        requiredRole="Administrator"
+        path={window.location.pathname}
+      />
+    )
+  }
 
   if (!center) return (
     <AdminLayout activePath="/admin/centers" title="Center Details" showTimeframe={false}>

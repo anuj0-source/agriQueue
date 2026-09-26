@@ -38,13 +38,6 @@ export default function StaffPaymentsPage() {
   const [batchSettling, setBatchSettling] = useState(false)
 
   useEffect(() => {
-    const currentUser = (() => {
-      try { return JSON.parse(localStorage.getItem('currentUser') || 'null') } catch { return null }
-    })()
-    if (!currentUser || currentUser.role !== 'staff') {
-      window.location.href = '/login'
-      return
-    }
     fetchPayments()
   }, [])
 

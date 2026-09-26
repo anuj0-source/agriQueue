@@ -301,7 +301,19 @@ async def get_admin_centers(db: AsyncSession = Depends(get_db)):
     return result
 
 @router.get("/centers/{center_id}")
-async def get_admin_center_details(center_id: int, db: AsyncSession = Depends(get_db)):
+async def get_admin_center_details(center_id: int, db: AsyncSession = Depends(get_db),access_token:str=Cookie(default=None)):
+    if access_token is None:
+        raise HTTPException(status_code=401, detail="Access token is missing")
+
+    # Verify token
+    token_data = isAuthenticated(access_token)
+    if not token_data:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+
+    # Check admin role
+    if token_data.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Access denied: Admin role required")
+    
     center = await db.get(ProcurementCenter, center_id)
     if not center:
         raise HTTPException(status_code=404, detail="Center not found")
