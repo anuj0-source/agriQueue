@@ -1,7 +1,39 @@
 import { useEffect, useState } from 'react'
 import AdminLayout from '../components/AdminLayout'
 import { getAdminDashboard } from '../api'
-import { CheckCircle2, TrendingUp, Sparkles } from 'lucide-react'
+import {
+  Users,
+  Building2,
+  ShoppingCart,
+  Wallet,
+  TrendingUp,
+  Activity,
+  CheckCircle2,
+  ArrowUpRight,
+  Wheat,
+  Sparkles,
+} from 'lucide-react'
+
+// ─── KPI Card ───────────────────────────────────────────────────────────────
+function KpiCard({ value, label, icon: Icon, gradient, iconBg, change, changePct }) {
+  return (
+    <div className="dash-kpi-card" style={{ background: gradient }}>
+      <div className="dash-kpi-top">
+        <div className="dash-kpi-icon-wrap" style={{ background: iconBg }}>
+          <Icon size={20} />
+        </div>
+        {changePct !== undefined && (
+          <span className={`dash-kpi-badge ${change >= 0 ? 'up' : 'down'}`}>
+            <ArrowUpRight size={12} style={{ transform: change < 0 ? 'rotate(90deg)' : 'none' }} />
+            {Math.abs(changePct)}%
+          </span>
+        )}
+      </div>
+      <div className="dash-kpi-value">{value}</div>
+      <div className="dash-kpi-label">{label}</div>
+    </div>
+  )
+}
 
 export default function AdminDashboardPage() {
   const [timeframe, setTimeframe] = useState('Last 30 Days')
@@ -35,21 +67,23 @@ export default function AdminDashboardPage() {
     { month: 'Aug', value: 30 },
     { month: 'Sep', value: 22 },
     { month: 'Oct', value: 45 },
+    { month: 'Nov', value: 38 },
+    { month: 'Dec', value: 58 },
   ]
 
   const cropDist = data?.crop_distribution || [
-    { crop: 'Wheat', percent: 60, color: '#3b82f6' },
-    { crop: 'Rice', percent: 20, color: '#f59e0b' },
-    { crop: 'Maize', percent: 10, color: '#ca8a04' },
-    { crop: 'Pulses', percent: 10, color: '#10b981' },
+    { crop: 'Wheat', percent: 45, color: '#f59e0b' },
+    { crop: 'Rice', percent: 25, color: '#10b981' },
+    { crop: 'Maize', percent: 18, color: '#6366f1' },
+    { crop: 'Pulses', percent: 12, color: '#f97316' },
   ]
 
   const recentActivities = data?.recent_activities || [
-    { id: 1, text: 'New farmer registered', time: '10:24 AM' },
-    { id: 2, text: 'Payment processed', time: '09:16 AM' },
-    { id: 3, text: 'Slot booked at Center A', time: '08:45 AM' },
-    { id: 4, text: 'Grain inspection passed (Wheat 2000kg)', time: '08:12 AM' },
-    { id: 5, text: 'Procurement center capacity updated', time: 'Yesterday' },
+    { id: 1, text: 'New farmer registered — Rajesh Kumar', time: '10:24 AM', type: 'user' },
+    { id: 2, text: 'Payment of ₹42,000 processed', time: '09:16 AM', type: 'payment' },
+    { id: 3, text: 'Slot booked at Center A (Wheat)', time: '08:45 AM', type: 'slot' },
+    { id: 4, text: 'Grain inspection passed — 2000 kg Wheat', time: '08:12 AM', type: 'check' },
+    { id: 5, text: 'Procurement center capacity updated', time: 'Yesterday', type: 'update' },
   ]
 
   const centerPerformance = data?.center_performance || [
@@ -59,17 +93,17 @@ export default function AdminDashboardPage() {
     { name: 'Center D', performance: 85 },
   ]
 
-  // SVG Line Chart coordinates calculation
-  const chartWidth = 400
-  const chartHeight = 160
-  const paddingX = 45
-  const paddingY = 20
+  // ── SVG Line Chart ──────────────────────────────────────────────────────
+  const chartWidth = 480
+  const chartHeight = 180
+  const paddingX = 48
+  const paddingY = 24
   const innerWidth = chartWidth - paddingX * 2
   const innerHeight = chartHeight - paddingY * 2
 
   const len = trendData.length
   const maxVal = Math.max(5, ...trendData.map(d => Number(d.value) || 0))
-  const gridTicks = [0, Math.round(maxVal * 0.25), Math.round(maxVal * 0.5), Math.round(maxVal * 0.75), maxVal]
+  const gridTicks = [0, Math.round(maxVal * 0.5), maxVal]
 
   const points = trendData.map((d, i) => {
     const x = len > 1 ? paddingX + (i / (len - 1)) * innerWidth : chartWidth / 2
@@ -77,40 +111,88 @@ export default function AdminDashboardPage() {
     return { x, y, ...d }
   })
 
-  // Generate smooth SVG curve path
-  const curvePath = points.length === 0
-    ? ''
-    : points.length === 1
-      ? `M ${points[0].x - 30},${points[0].y} L ${points[0].x + 30},${points[0].y}`
-      : points.reduce((acc, pt, i, arr) => {
-          if (i === 0) return `M ${pt.x},${pt.y}`
-          const prev = arr[i - 1]
-          const cx = (prev.x + pt.x) / 2
-          return `${acc} C ${cx},${prev.y} ${cx},${pt.y} ${pt.x},${pt.y}`
-        }, '')
+  const curvePath =
+    points.length === 0
+      ? ''
+      : points.length === 1
+        ? `M ${points[0].x - 30},${points[0].y} L ${points[0].x + 30},${points[0].y}`
+        : points.reduce((acc, pt, i, arr) => {
+            if (i === 0) return `M ${pt.x},${pt.y}`
+            const prev = arr[i - 1]
+            const cx = (prev.x + pt.x) / 2
+            return `${acc} C ${cx},${prev.y} ${cx},${pt.y} ${pt.x},${pt.y}`
+          }, '')
 
-  const areaPath = points.length <= 1
-    ? ''
-    : `${curvePath} L ${points[points.length - 1].x},${chartHeight - paddingY} L ${points[0].x},${chartHeight - paddingY} Z`
+  const areaPath =
+    points.length <= 1
+      ? ''
+      : `${curvePath} L ${points[points.length - 1].x},${chartHeight - paddingY} L ${points[0].x},${chartHeight - paddingY} Z`
 
-  // SVG Donut Chart calculation
-  const donutSize = 170
+  // ── Donut Chart ─────────────────────────────────────────────────────────
+  const donutSize = 160
   const donutCenter = donutSize / 2
-  const strokeWidth = 26
+  const strokeWidth = 22
   const radius = (donutSize - strokeWidth) / 2
   const circumference = 2 * Math.PI * radius
+  const gap = 4
 
-  let accumulatedPercent = 0
+  let accumulated = 0
   const donutSegments = cropDist.map((crop) => {
-    const strokeDasharray = `${(crop.percent / 100) * circumference} ${circumference}`
-    const strokeDashoffset = -((accumulatedPercent / 100) * circumference)
-    accumulatedPercent += crop.percent
+    const segLen = ((crop.percent / 100) * circumference) - gap
+    const offset = -((accumulated / 100) * circumference)
+    accumulated += crop.percent
     return {
       ...crop,
-      strokeDasharray,
-      strokeDashoffset,
+      strokeDasharray: `${segLen} ${circumference}`,
+      strokeDashoffset: offset,
     }
   })
+
+  // ── Perf gradient pick ──────────────────────────────────────────────────
+  const perfGradient = (pct) => {
+    if (pct >= 85) return 'linear-gradient(90deg, #10b981, #059669)'
+    if (pct >= 60) return 'linear-gradient(90deg, #f59e0b, #d97706)'
+    return 'linear-gradient(90deg, #f97316, #ea580c)'
+  }
+
+  const kpiCards = [
+    {
+      value: metrics.total_farmers,
+      label: 'Total Farmers',
+      icon: Users,
+      gradient: 'linear-gradient(135deg, #0a7a4a 0%, #065f38 100%)',
+      iconBg: 'rgba(255,255,255,0.18)',
+      changePct: 12,
+      change: 1,
+    },
+    {
+      value: metrics.procurement_centers,
+      label: 'Procurement Centers',
+      icon: Building2,
+      gradient: 'linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%)',
+      iconBg: 'rgba(255,255,255,0.18)',
+      changePct: 8,
+      change: 1,
+    },
+    {
+      value: metrics.total_procurements,
+      label: 'Total Procurements',
+      icon: ShoppingCart,
+      gradient: 'linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%)',
+      iconBg: 'rgba(255,255,255,0.18)',
+      changePct: 20,
+      change: 1,
+    },
+    {
+      value: metrics.total_payments,
+      label: 'Total Payments',
+      icon: Wallet,
+      gradient: 'linear-gradient(135deg, #b45309 0%, #92400e 100%)',
+      iconBg: 'rgba(255,255,255,0.18)',
+      changePct: 15,
+      change: 1,
+    },
+  ]
 
   return (
     <AdminLayout
@@ -119,248 +201,316 @@ export default function AdminDashboardPage() {
       timeframe={timeframe}
       onTimeframeChange={setTimeframe}
     >
-      <div className="admin-dashboard-container">
+      <div className="dash-container">
         {loading ? (
           <>
-            {/* ─── Top 4 Metric Cards Skeletons ─── */}
-            <section className="admin-kpi-grid">
+            <section className="dash-kpi-grid">
               {[1, 2, 3, 4].map(i => (
-                <div key={i} className="admin-kpi-card skeleton-card skeleton" style={{ gap: '12px', padding: '24px' }}>
-                  <div className="skeleton-text skeleton" style={{ height: '36px', width: '50%' }}></div>
-                  <div className="skeleton-text skeleton short"></div>
-                </div>
+                <div key={i} className="dash-kpi-card skeleton" style={{ minHeight: '130px', background: '#e2e8f0', border: 'none' }} />
               ))}
             </section>
-            
-            {/* ─── Middle Visual Grid Skeletons ─── */}
-            <section className="admin-charts-grid">
-              <div className="admin-panel-card skeleton-card skeleton" style={{ minHeight: '280px' }}></div>
-              <div className="admin-panel-card skeleton-card skeleton" style={{ minHeight: '280px' }}></div>
+            <section className="dash-charts-grid">
+              <div className="dash-panel skeleton" style={{ minHeight: '300px', background: '#e2e8f0', border: 'none' }} />
+              <div className="dash-panel skeleton" style={{ minHeight: '300px', background: '#e2e8f0', border: 'none' }} />
             </section>
-            
-            {/* ─── Bottom Grid Skeletons ─── */}
-            <section className="admin-lower-grid">
-              <div className="admin-panel-card skeleton-card skeleton" style={{ minHeight: '240px' }}></div>
-              <div className="admin-panel-card skeleton-card skeleton" style={{ minHeight: '240px' }}></div>
+            <section className="dash-lower-grid">
+              <div className="dash-panel skeleton" style={{ minHeight: '250px', background: '#e2e8f0', border: 'none' }} />
+              <div className="dash-panel skeleton" style={{ minHeight: '250px', background: '#e2e8f0', border: 'none' }} />
             </section>
           </>
         ) : (
           <>
-            {/* ─── Top 4 Metric Cards ─── */}
-            <section className="admin-kpi-grid" aria-label="Key Performance Indicators">
-          <div className="admin-kpi-card">
-            <div className="kpi-value">{metrics.total_farmers}</div>
-            <div className="kpi-label">Total Farmers</div>
-          </div>
+            {/* ─── KPI Cards ─── */}
+            <section className="dash-kpi-grid" aria-label="Key Performance Indicators">
+              {kpiCards.map((card) => (
+                <KpiCard key={card.label} {...card} />
+              ))}
+            </section>
 
-          <div className="admin-kpi-card">
-            <div className="kpi-value">{metrics.procurement_centers}</div>
-            <div className="kpi-label">Procurement Centers</div>
-          </div>
+            {/* ─── Charts Row ─── */}
+            <section className="dash-charts-grid">
+              {/* Trend Chart */}
+              <div className="dash-panel trend-panel">
+                <div className="dash-panel-header">
+                  <div className="dash-panel-title-group">
+                    <div className="dash-panel-icon-wrap trend-icon">
+                      <TrendingUp size={16} />
+                    </div>
+                    <div>
+                      <h2 className="dash-panel-title">Procurements Trend</h2>
+                      <p className="dash-panel-sub">Monthly procurement activity</p>
+                    </div>
+                  </div>
+                  <span className="dash-panel-badge">
+                    <Sparkles size={12} /> Live
+                  </span>
+                </div>
+                <div className="dash-trend-wrapper">
+                  <svg
+                    viewBox={`0 0 ${chartWidth} ${chartHeight}`}
+                    className="dash-trend-svg"
+                    preserveAspectRatio="none"
+                  >
+                    <defs>
+                      <linearGradient id="dashTrendGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#0a7a4a" stopOpacity="0.30" />
+                        <stop offset="100%" stopColor="#0a7a4a" stopOpacity="0.01" />
+                      </linearGradient>
+                      <linearGradient id="dashLineGrad" x1="0" y1="0" x2="1" y2="0">
+                        <stop offset="0%" stopColor="#10b981" />
+                        <stop offset="100%" stopColor="#0a7a4a" />
+                      </linearGradient>
+                      <filter id="glowFilter">
+                        <feGaussianBlur stdDeviation="2" result="coloredBlur" />
+                        <feMerge>
+                          <feMergeNode in="coloredBlur" />
+                          <feMergeNode in="SourceGraphic" />
+                        </feMerge>
+                      </filter>
+                    </defs>
 
-          <div className="admin-kpi-card">
-            <div className="kpi-value">{metrics.total_procurements}</div>
-            <div className="kpi-label">Total Procurements</div>
-          </div>
+                    {/* Grid lines */}
+                    {gridTicks.map((val) => {
+                      const y = chartHeight - paddingY - (val / maxVal) * innerHeight
+                      return (
+                        <g key={val}>
+                          <line
+                            x1={paddingX}
+                            y1={y}
+                            x2={chartWidth - paddingX}
+                            y2={y}
+                            stroke="#e2e8f0"
+                            strokeWidth="1"
+                            strokeDasharray="4 4"
+                          />
+                          <text
+                            x={paddingX - 12}
+                            y={y + 4}
+                            textAnchor="end"
+                            className="dash-axis-label"
+                          >
+                            {val}
+                          </text>
+                        </g>
+                      )
+                    })}
 
-          <div className="admin-kpi-card">
-            <div className="kpi-value">{metrics.total_payments}</div>
-            <div className="kpi-label">Total Payments</div>
-          </div>
-        </section>
+                    {/* Area fill */}
+                    <path d={areaPath} fill="url(#dashTrendGrad)" />
 
-        {/* ─── Middle Visual Grid: Trend & Crop Distribution ─── */}
-        <section className="admin-charts-grid">
-          {/* Procurements Trend Line Chart */}
-          <div className="admin-panel-card trend-card">
-            <div className="panel-header">
-              <h2 className="panel-title">Procurements Trend</h2>
-            </div>
-            <div className="trend-chart-container">
-              <svg
-                viewBox={`0 0 ${chartWidth} ${chartHeight}`}
-                className="trend-svg"
-                preserveAspectRatio="none"
-              >
-                <defs>
-                  <linearGradient id="trendGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#38bdf8" stopOpacity="0.25" />
-                    <stop offset="100%" stopColor="#38bdf8" stopOpacity="0.0" />
-                  </linearGradient>
-                </defs>
-
-                {/* Horizontal Grid lines */}
-                {gridTicks.map((val) => {
-                  const y = chartHeight - paddingY - (val / maxVal) * innerHeight
-                  return (
-                    <g key={val} className="trend-grid-row">
-                      <line
-                        x1={paddingX - 10}
-                        y1={y}
-                        x2={chartWidth - paddingX + 10}
-                        y2={y}
-                        stroke="#f1f5f9"
-                        strokeWidth="1"
-                      />
-                      <text
-                        x={paddingX - 16}
-                        y={y + 4}
-                        textAnchor="end"
-                        className="trend-axis-label"
-                      >
-                        {val}
-                      </text>
-                    </g>
-                  )
-                })}
-
-                {/* Shaded Area */}
-                <path d={areaPath} fill="url(#trendGradient)" />
-
-                {/* Curved Line */}
-                <path
-                  d={curvePath}
-                  fill="none"
-                  stroke="#38bdf8"
-                  strokeWidth="3.5"
-                  strokeLinecap="round"
-                />
-
-                {/* Data Points */}
-                {points.map((pt, idx) => (
-                  <g key={idx}>
-                    <circle
-                      cx={pt.x}
-                      cy={pt.y}
-                      r="4.5"
-                      fill="#ffffff"
-                      stroke="#0284c7"
-                      strokeWidth="2.5"
-                    />
-                    <text
-                      x={pt.x}
-                      y={chartHeight - 4}
-                      textAnchor="middle"
-                      className="trend-month-label"
-                    >
-                      {pt.month}
-                    </text>
-                  </g>
-                ))}
-              </svg>
-            </div>
-          </div>
-
-          {/* Crop Distribution Donut Chart */}
-          <div className="admin-panel-card crop-card">
-            <div className="panel-header">
-              <h2 className="panel-title">Crop Distribution</h2>
-            </div>
-            <div className="donut-content-layout">
-              <div className="donut-graphic-wrapper">
-                <svg
-                  width={donutSize}
-                  height={donutSize}
-                  viewBox={`0 0 ${donutSize} ${donutSize}`}
-                  className="donut-svg"
-                >
-                  <circle
-                    cx={donutCenter}
-                    cy={donutCenter}
-                    r={radius}
-                    fill="transparent"
-                    stroke="#f1f5f9"
-                    strokeWidth={strokeWidth}
-                  />
-                  {donutSegments.map((segment) => (
-                    <circle
-                      key={segment.crop}
-                      cx={donutCenter}
-                      cy={donutCenter}
-                      r={radius}
-                      fill="transparent"
-                      stroke={segment.color}
-                      strokeWidth={strokeWidth}
-                      strokeDasharray={segment.strokeDasharray}
-                      strokeDashoffset={segment.strokeDashoffset}
+                    {/* Main line */}
+                    <path
+                      d={curvePath}
+                      fill="none"
+                      stroke="url(#dashLineGrad)"
+                      strokeWidth="3"
                       strokeLinecap="round"
-                      transform={`rotate(-90 ${donutCenter} ${donutCenter})`}
+                      filter="url(#glowFilter)"
                     />
-                  ))}
-                </svg>
+
+                    {/* Data points */}
+                    {points.map((pt, idx) => (
+                      <g key={idx} className="dash-chart-point">
+                        <circle cx={pt.x} cy={pt.y} r="6" fill="#0a7a4a" opacity="0.15" />
+                        <circle
+                          cx={pt.x}
+                          cy={pt.y}
+                          r="4"
+                          fill="#ffffff"
+                          stroke="#0a7a4a"
+                          strokeWidth="2.5"
+                        />
+                        <text
+                          x={pt.x}
+                          y={chartHeight - 6}
+                          textAnchor="middle"
+                          className="dash-month-label"
+                        >
+                          {pt.month}
+                        </text>
+                      </g>
+                    ))}
+                  </svg>
+                </div>
               </div>
 
-              {/* Legend List */}
-              <div className="donut-legend-list">
-                {cropDist.map((crop) => (
-                  <div key={crop.crop} className="donut-legend-row">
-                    <span
-                      className="legend-bullet"
-                      style={{ backgroundColor: crop.color }}
-                    />
-                    <span className="legend-crop-name">{crop.crop}</span>
-                    <span className="legend-crop-pct">{crop.percent}%</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* ─── Bottom Visual Grid: Recent Activities & Center Performance ─── */}
-        <section className="admin-lower-grid">
-          {/* Recent Activities */}
-          <div className="admin-panel-card activities-card">
-            <div className="panel-header">
-              <h2 className="panel-title">Recent Activities</h2>
-            </div>
-            <div className="activities-list">
-              {recentActivities.length === 0 ? (
-                <div style={{ padding: '24px', textAlign: 'center', color: '#94a3b8', fontSize: '13px' }}>
-                  No recent activities recorded yet.
-                </div>
-              ) : (
-                recentActivities.slice(0, 5).map((act, idx) => (
-                  <div key={act.id || idx} className="activity-row">
-                    <div className="activity-icon-wrap">
-                      <CheckCircle2 size={18} className="activity-check-icon" />
+              {/* Crop Distribution */}
+              <div className="dash-panel crop-panel">
+                <div className="dash-panel-header">
+                  <div className="dash-panel-title-group">
+                    <div className="dash-panel-icon-wrap crop-icon">
+                      <Wheat size={16} />
                     </div>
-                    <div className="activity-body">
-                      <span className="activity-text">{act.text}</span>
+                    <div>
+                      <h2 className="dash-panel-title">Crop Distribution</h2>
+                      <p className="dash-panel-sub">Current season breakdown</p>
                     </div>
-                    <span className="activity-time">{act.time}</span>
                   </div>
-                ))
-              )}
-            </div>
-          </div>
-
-          {/* Center Performance */}
-          <div className="admin-panel-card performance-card">
-            <div className="panel-header">
-              <h2 className="panel-title">Center Performance</h2>
-            </div>
-            <div className="performance-list">
-              {centerPerformance.length === 0 ? (
-                <div style={{ padding: '24px', textAlign: 'center', color: '#94a3b8', fontSize: '13px' }}>
-                  No procurement centers active.
                 </div>
-              ) : (
-                centerPerformance.map((center) => (
-                  <div key={center.name} className="center-perf-row">
-                    <span className="center-perf-name">{center.name}</span>
-                    <div className="perf-progress-track">
-                      <div
-                        className="perf-progress-fill"
-                        style={{ width: `${center.performance}%` }}
+                <div className="dash-donut-layout">
+                  <div className="dash-donut-graphic">
+                    <svg
+                      width={donutSize}
+                      height={donutSize}
+                      viewBox={`0 0 ${donutSize} ${donutSize}`}
+                    >
+                      {/* Track */}
+                      <circle
+                        cx={donutCenter}
+                        cy={donutCenter}
+                        r={radius}
+                        fill="transparent"
+                        stroke="#f1f5f9"
+                        strokeWidth={strokeWidth}
                       />
-                    </div>
-                    <span className="center-perf-pct">{center.performance}%</span>
+                      {/* Segments */}
+                      {donutSegments.map((seg) => (
+                        <circle
+                          key={seg.crop}
+                          cx={donutCenter}
+                          cy={donutCenter}
+                          r={radius}
+                          fill="transparent"
+                          stroke={seg.color}
+                          strokeWidth={strokeWidth}
+                          strokeDasharray={seg.strokeDasharray}
+                          strokeDashoffset={seg.strokeDashoffset}
+                          strokeLinecap="round"
+                          transform={`rotate(-90 ${donutCenter} ${donutCenter})`}
+                          style={{ transition: 'stroke-dasharray 0.6s ease, stroke-dashoffset 0.6s ease' }}
+                        />
+                      ))}
+                      {/* Center text */}
+                      <text
+                        x={donutCenter}
+                        y={donutCenter - 6}
+                        textAnchor="middle"
+                        className="donut-center-val"
+                      >
+                        {cropDist.reduce((s, c) => s + c.percent, 0)}%
+                      </text>
+                      <text
+                        x={donutCenter}
+                        y={donutCenter + 12}
+                        textAnchor="middle"
+                        className="donut-center-label"
+                      >
+                        Total
+                      </text>
+                    </svg>
                   </div>
-                ))
-              )}
-            </div>
-          </div>
+
+                  <div className="dash-legend">
+                    {cropDist.map((crop) => (
+                      <div key={crop.crop} className="dash-legend-row">
+                        <span className="dash-legend-dot" style={{ background: crop.color }} />
+                        <span className="dash-legend-name">{crop.crop}</span>
+                        <div className="dash-legend-bar-track">
+                          <div
+                            className="dash-legend-bar-fill"
+                            style={{ width: `${crop.percent}%`, background: crop.color }}
+                          />
+                        </div>
+                        <span className="dash-legend-pct" style={{ color: crop.color }}>
+                          {crop.percent}%
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            {/* ─── Bottom Row ─── */}
+            <section className="dash-lower-grid">
+              {/* Recent Activities */}
+              <div className="dash-panel activities-panel">
+                <div className="dash-panel-header">
+                  <div className="dash-panel-title-group">
+                    <div className="dash-panel-icon-wrap activity-icon">
+                      <Activity size={16} />
+                    </div>
+                    <div>
+                      <h2 className="dash-panel-title">Recent Activities</h2>
+                      <p className="dash-panel-sub">Latest system events</p>
+                    </div>
+                  </div>
+                  <span className="dash-panel-count">{recentActivities.length} events</span>
+                </div>
+                <div className="dash-activity-list">
+                  {recentActivities.length === 0 ? (
+                    <div className="dash-empty-state">No recent activities recorded yet.</div>
+                  ) : (
+                    recentActivities.slice(0, 5).map((act, idx) => (
+                      <div key={act.id || idx} className="dash-activity-row">
+                        <div className="dash-activity-dot-wrap">
+                          <span className="dash-activity-dot" />
+                          {idx < recentActivities.slice(0, 5).length - 1 && (
+                            <span className="dash-activity-line" />
+                          )}
+                        </div>
+                        <div className="dash-activity-icon-bg">
+                          <CheckCircle2 size={15} />
+                        </div>
+                        <div className="dash-activity-body">
+                          <span className="dash-activity-text">{act.text}</span>
+                          <span className="dash-activity-time">{act.time}</span>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              {/* Center Performance */}
+              <div className="dash-panel performance-panel">
+                <div className="dash-panel-header">
+                  <div className="dash-panel-title-group">
+                    <div className="dash-panel-icon-wrap perf-icon">
+                      <Building2 size={16} />
+                    </div>
+                    <div>
+                      <h2 className="dash-panel-title">Center Performance</h2>
+                      <p className="dash-panel-sub">Utilization by center</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="dash-perf-list">
+                  {centerPerformance.length === 0 ? (
+                    <div className="dash-empty-state">No procurement centers active.</div>
+                  ) : (
+                    centerPerformance.map((center) => (
+                      <div key={center.name} className="dash-perf-row">
+                        <div className="dash-perf-top">
+                          <span className="dash-perf-name">{center.name}</span>
+                          <span
+                            className="dash-perf-pct"
+                            style={{
+                              color:
+                                center.performance >= 85
+                                  ? '#059669'
+                                  : center.performance >= 60
+                                  ? '#d97706'
+                                  : '#ea580c',
+                            }}
+                          >
+                            {center.performance}%
+                          </span>
+                        </div>
+                        <div className="dash-perf-track">
+                          <div
+                            className="dash-perf-fill"
+                            style={{
+                              width: `${center.performance}%`,
+                              background: perfGradient(center.performance),
+                            }}
+                          />
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
             </section>
           </>
         )}

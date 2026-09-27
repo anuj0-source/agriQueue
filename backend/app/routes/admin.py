@@ -99,23 +99,30 @@ async def get_admin_dashboard(
     crop_stats = (await db.execute(crop_query)).all()
 
     raw_crops = dict(crop_stats)
-    total_c = sum(raw_crops.values()) or 0
+    
+    # Aggregate crops to handle casing/whitespace issues
+    aggregated_crops = {}
+    for produce, count in raw_crops.items():
+        canonical_name = produce.strip().capitalize() if produce else "Other"
+        aggregated_crops[canonical_name] = aggregated_crops.get(canonical_name, 0) + count
+
+    total_c = sum(aggregated_crops.values()) or 0
 
     colors = {
-        "wheat": "#3b82f6", "Wheat": "#3b82f6",
-        "rice": "#f59e0b", "Rice": "#f59e0b",
-        "maize": "#10b981", "Maize": "#10b981",
-        "pulses": "#8b5cf6", "Pulses": "#8b5cf6"
+        "Wheat": "#3b82f6",
+        "Rice": "#f59e0b",
+        "Maize": "#10b981",
+        "Pulses": "#8b5cf6"
     }
 
     crop_distribution = []
     if total_c > 0:
-        for produce, count in raw_crops.items():
+        for produce, count in aggregated_crops.items():
             percent = round((count / total_c) * 100)
             crop_distribution.append({
-                "crop": produce.capitalize() if produce else "Other",
+                "crop": produce,
                 "percent": percent,
-                "color": colors.get(produce.lower() if produce else "", "#8b5cf6")
+                "color": colors.get(produce, "#8b5cf6")
             })
     else:
         crop_distribution = [
